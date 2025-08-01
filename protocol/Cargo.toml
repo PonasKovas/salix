@@ -1,0 +1,11 @@
+[package]
+name = "protocol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+capnp = { workspace = true, features = ["rpc_try"] }
+capnp-rpc.workspace = true
+
+[build-dependencies]
+capnpc.workspace = true

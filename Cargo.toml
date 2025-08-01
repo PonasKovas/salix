@@ -1,0 +1,18 @@
+[workspace]
+resolver = "3"
+members = [ "client", "protocol","server"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace.dependencies]
+tokio = "1.47.0"
+tokio-util = "0.7.15"
+futures = "0.3.31"
+capnp = "0.21.4"
+capnp-rpc = "0.21.0"
+capnpc = "0.21.2"
+hyper = "1.6.0"
+hyper-util = "0.1.16"
+anyhow = "1.0.98"

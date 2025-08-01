@@ -1,0 +1,12 @@
+[package]
+name = "client"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+protocol = { path = "../protocol" }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true, features = ["compat"] }
+futures.workspace = true
+hyper = { workspace = true, features = ["http2", "client"] }
+anyhow.workspace = true
