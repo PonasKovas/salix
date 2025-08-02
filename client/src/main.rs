@@ -1,14 +1,34 @@
+use std::sync::Arc;
+
 use futures::AsyncReadExt;
 use protocol::capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
 use protocol::main_capnp::handshake;
+use tokio_rustls::rustls::pki_types::pem::PemObject;
+use tokio_rustls::rustls::pki_types::{CertificateDer, ServerName};
+use tokio_rustls::{TlsConnector, rustls};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+	let mut root_cert_store = rustls::RootCertStore::empty();
+
+	for cert in CertificateDer::pem_file_iter("certs/ca.crt")? {
+		root_cert_store.add(cert?)?;
+	}
+
+	let config = rustls::ClientConfig::builder()
+		.with_root_certificates(root_cert_store)
+		.with_no_client_auth();
+	let connector = TlsConnector::from(Arc::new(config));
+
 	let msg = std::env::args().nth(1).unwrap().to_string();
 	tokio::task::LocalSet::new()
 		.run_until(async move {
 			let stream = tokio::net::TcpStream::connect("0.0.0.0:15935").await?;
 			stream.set_nodelay(true)?;
+
+			let servername = ServerName::try_from("salix")?.to_owned();
+			let stream = connector.connect(servername, stream).await?;
+
 			let (reader, writer) =
 				tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
 			let rpc_network = Box::new(twoparty::VatNetwork::new(
@@ -18,6 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				Default::default(),
 			));
 			let mut rpc_system = RpcSystem::new(rpc_network, None);
+			let disconnector = rpc_system.get_disconnector();
 			let handshake: handshake::Client =
 				rpc_system.bootstrap(rpc_twoparty_capnp::Side::Server);
 
@@ -49,6 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				"received: {}",
 				reply.get()?.get_reply()?.get_message()?.to_str()?
 			);
+			disconnector.await?;
 			Ok(())
 		})
 		.await
