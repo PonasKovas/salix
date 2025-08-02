@@ -2,9 +2,9 @@
 
 interface Handshake {
     struct Version {
-        major @0: Int32;
-        minor @1: Int32;
-        patch @2: Int32;
+        major @0: UInt32;
+        minor @1: UInt32;
+        patch @2: UInt32;
     }
 
     handshake @0 (client_version: Version) -> (server_version: Version, main: Main);

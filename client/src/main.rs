@@ -25,9 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut handshake_request = handshake.handshake_request();
             let mut version = handshake_request.get().init_client_version();
-            version.set_major(4);
-            version.set_minor(5);
-            version.set_patch(6);
+            version.set_major(protocol::VERSION[0]);
+            version.set_minor(protocol::VERSION[1]);
+            version.set_patch(protocol::VERSION[2]);
 
             let handshake_reply = handshake_request.send().promise.await?;
 

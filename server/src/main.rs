@@ -25,9 +25,9 @@ impl handshake::Server for HandshakeImpl {
         );
 
         let mut server_version = results.get().init_server_version();
-        server_version.set_major(1);
-        server_version.set_minor(2);
-        server_version.set_patch(3);
+        server_version.set_major(protocol::VERSION[0]);
+        server_version.set_minor(protocol::VERSION[1]);
+        server_version.set_patch(protocol::VERSION[2]);
 
         results.get().set_main(capnp_rpc::new_client(MainImpl));
 
@@ -54,44 +54,41 @@ impl main::Server for MainImpl {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let http2 = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
-        .keep_alive_interval(Duration::from_secs(5));
-
     let listener = TcpListener::bind("0.0.0.0:15935").await?;
 
-    loop {
-        let (stream, _) = listener.accept().await?;
-        stream.set_nodelay(true)?;
+    // loop {
+    //     let (stream, _) = listener.accept().await?;
+    //     stream.set_nodelay(true)?;
 
-        let stream = hyper_util::rt::TokioIo::new(stream);
+    //     let stream = hyper_util::rt::TokioIo::new(stream);
 
-        spawn(http2.serve_connection(
-            stream,
-            hyper::service::service_fn(|request| Ok(hyper::Response)),
-        ));
-    }
+    //     spawn(http2.serve_connection(
+    //         stream,
+    //         hyper::service::service_fn(|request| Ok(hyper::Response::)),
+    //     ));
+    // }
 
-    // tokio::task::LocalSet::new()
-    //     .run_until(async move {
-    //         let handshake_client: handshake::Client = capnp_rpc::new_client(HandshakeImpl);
+    tokio::task::LocalSet::new()
+        .run_until(async move {
+            let handshake_client: handshake::Client = capnp_rpc::new_client(HandshakeImpl);
 
-    //         loop {
-    //             let (stream, _) = listener.accept().await?;
-    //             stream.set_nodelay(true)?;
-    //             let (reader, writer) =
-    //                 tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
-    //             let network = twoparty::VatNetwork::new(
-    //                 futures::io::BufReader::new(reader),
-    //                 futures::io::BufWriter::new(writer),
-    //                 rpc_twoparty_capnp::Side::Server,
-    //                 Default::default(),
-    //             );
+            loop {
+                let (stream, _) = listener.accept().await?;
+                stream.set_nodelay(true)?;
+                let (reader, writer) =
+                    tokio_util::compat::TokioAsyncReadCompatExt::compat(stream).split();
+                let network = twoparty::VatNetwork::new(
+                    futures::io::BufReader::new(reader),
+                    futures::io::BufWriter::new(writer),
+                    rpc_twoparty_capnp::Side::Server,
+                    Default::default(),
+                );
 
-    //             let rpc_system =
-    //                 RpcSystem::new(Box::new(network), Some(handshake_client.clone().client));
+                let rpc_system =
+                    RpcSystem::new(Box::new(network), Some(handshake_client.clone().client));
 
-    //             tokio::task::spawn_local(rpc_system);
-    //         }
-    //     })
-    //     .await
+                tokio::task::spawn_local(rpc_system);
+            }
+        })
+        .await
 }
