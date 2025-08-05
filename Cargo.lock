@@ -196,6 +196,7 @@ dependencies = [
  "futures",
  "protocol",
  "tokio",
+ "tokio-rustls",
  "tokio-util",
 ]
 
