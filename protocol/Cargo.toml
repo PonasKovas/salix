@@ -4,8 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-capnp = { workspace = true, features = ["rpc_try"] }
-capnp-rpc.workspace = true
+tonic.workspace = true
+tonic-prost.workspace = true
+prost.workspace = true
 
 [build-dependencies]
-capnpc.workspace = true
+tonic-prost-build.workspace = true

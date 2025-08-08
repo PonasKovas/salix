@@ -1,12 +1,14 @@
-capnp::generated_code!(pub mod main_capnp);
+pub use tonic;
 
-pub use capnp;
-pub use capnp_rpc;
+mod generated {
+	tonic::include_proto!("main");
+}
+pub use generated::*;
 
 /// Version of the protocol (which is just the version of this crate)
 ///
 /// To be sent in the handshake
-pub const VERSION: [u32; 3] = const {
+pub const VERSION: Version = const {
 	// this might not be the most "robust" solution to get the package version
 	// as a const here, but i dont want to pull in any more dependencies just for this
 	// and im sure we can trust cargo to provide CARGO_PKG_VERSION that will be parsed correctly
@@ -31,5 +33,9 @@ pub const VERSION: [u32; 3] = const {
 	}
 	result[part_index] = current_num;
 
-	result
+	Version {
+		major: result[0],
+		minor: result[1],
+		patch: result[2],
+	}
 };

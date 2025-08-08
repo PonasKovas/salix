@@ -1,9 +1,13 @@
-fn main() {
-	println!("cargo::rerun-if-changed=capnp/");
+use std::process::ExitCode;
 
-	capnpc::CompilerCommand::new()
-		.src_prefix("capnp/")
-		.file("capnp/main.capnp")
-		.run()
-		.unwrap();
+fn main() -> ExitCode {
+	println!("cargo::rerun-if-changed=proto/");
+
+	if let Err(e) = tonic_prost_build::configure().compile_protos(&["proto/main.proto"], &["proto"])
+	{
+		eprintln!("Error compiling protobuf schemas:\n{e}");
+		return ExitCode::FAILURE;
+	}
+
+	ExitCode::SUCCESS
 }

@@ -9,4 +9,3 @@ tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true, features = ["compat"] }
 futures.workspace = true
 anyhow.workspace = true
-tokio-rustls.workspace = true
