@@ -836,9 +836,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "futures",
+ "http",
  "protocol",
  "tokio",
  "tokio-util",
+ "tower",
 ]
 
 [[package]]
