@@ -1,17 +1,28 @@
+use std::env;
+
 use anyhow::Result;
+use auth::AuthData;
+use auth::AuthLayer;
 use protocol::Empty;
 use protocol::main_server::Main;
 use protocol::tonic;
 use protocol::tonic::Request;
 use protocol::tonic::Response;
 use protocol::tonic::Status;
+use sqlx::PgPool;
+use tower::Layer;
+
+mod auth;
 
 pub struct MainImpl;
 
 #[tonic::async_trait]
 impl Main for MainImpl {
-	async fn say_hello(&self, _request: Request<Empty>) -> tonic::Result<Response<Empty>> {
-		println!("Someone is saying hello");
+	async fn say_hello(&self, request: Request<Empty>) -> tonic::Result<Response<Empty>> {
+		println!(
+			"{:?} is saying hello",
+			request.extensions().get::<AuthData>().unwrap().user_id
+		);
 
 		Ok(Response::new(Empty {}))
 	}
@@ -50,12 +61,14 @@ fn version_check(req: Request<()>) -> tonic::Result<Request<()>> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	let addr = "[::1]:50051".parse()?;
+	let db = PgPool::connect(&env::var("DATABASE_URL")?).await?;
+
+	let auth_layer = AuthLayer { db: db.clone() };
 
 	tonic::transport::Server::builder()
 		.layer(tonic::service::InterceptorLayer::new(version_check))
-		.add_service(protocol::main_server::MainServer::new(MainImpl))
-		.serve(addr)
+		.add_service(auth_layer.layer(protocol::main_server::MainServer::new(MainImpl)))
+		.serve("[::1]:50051".parse()?)
 		.await?;
 
 	Ok(())

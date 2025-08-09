@@ -9,6 +9,11 @@ fn add_version(mut req: Request<()>) -> tonic::Result<Request<()>> {
 	req.metadata_mut()
 		.append("version", protocol::VERSION.to_string().parse().unwrap());
 
+	req.metadata_mut().append(
+		"auth",
+		"550e8400-e29b-41d4-a716-446655440000".parse().unwrap(),
+	);
+
 	Ok(req)
 }
 
