@@ -8,7 +8,7 @@ pub use generated::*;
 /// Version of the protocol (which is just the version of this crate)
 ///
 /// To be sent in the handshake
-pub const VERSION: Version = const {
+pub const VERSION: semver::Version = const {
 	// this might not be the most "robust" solution to get the package version
 	// as a const here, but i dont want to pull in any more dependencies just for this
 	// and im sure we can trust cargo to provide CARGO_PKG_VERSION that will be parsed correctly
@@ -22,7 +22,7 @@ pub const VERSION: Version = const {
 		let byte = bytes[i];
 
 		if byte >= b'0' && byte <= b'9' {
-			current_num = current_num * 10 + (byte - b'0') as u32;
+			current_num = current_num * 10 + (byte - b'0') as u64;
 		} else if byte == b'.' {
 			result[part_index] = current_num;
 			part_index += 1;
@@ -33,9 +33,5 @@ pub const VERSION: Version = const {
 	}
 	result[part_index] = current_num;
 
-	Version {
-		major: result[0],
-		minor: result[1],
-		patch: result[2],
-	}
+	semver::Version::new(result[0], result[1], result[2])
 };

@@ -8,5 +8,7 @@ tonic.workspace = true
 tonic-prost.workspace = true
 prost.workspace = true
 
+semver.workspace = true
+
 [build-dependencies]
 tonic-prost-build.workspace = true
