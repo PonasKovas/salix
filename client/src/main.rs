@@ -1,7 +1,9 @@
+use std::env;
+
 use anyhow::Result;
 use protocol::{
-	Empty,
-	main_client::MainClient,
+	auth::{LoginRequest, auth_client::AuthClient},
+	main::{Empty, main_client::MainClient},
 	tonic::{self, Request, transport::Endpoint},
 };
 
@@ -23,9 +25,28 @@ async fn main() -> Result<()> {
 		.connect()
 		.await?;
 
-	let mut client = MainClient::with_interceptor(channel, add_version);
+	match env::args().nth(1).unwrap().as_str() {
+		"login" => {
+			let mut client = AuthClient::with_interceptor(channel, add_version);
 
-	client.say_hello(Request::new(Empty {})).await?;
+			let res = client
+				.login(LoginRequest {
+					username: "test".to_owned(),
+				})
+				.await?;
+
+			println!("{:?}", res.get_ref());
+		}
+		token => {
+			let mut client = MainClient::with_interceptor(channel, add_version);
+
+			let mut request = Request::new(Empty {});
+			request
+				.metadata_mut()
+				.append("auth", token.parse().unwrap());
+			client.say_hello(request).await?;
+		}
+	}
 
 	Ok(())
 }

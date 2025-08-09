@@ -1,18 +1,17 @@
-use std::env;
-
 use anyhow::Result;
-use auth::AuthData;
-use auth::AuthLayer;
-use protocol::Empty;
-use protocol::main_server::Main;
-use protocol::tonic;
-use protocol::tonic::Request;
-use protocol::tonic::Response;
-use protocol::tonic::Status;
+use auth::AuthImpl;
+use auth_verify::{AuthData, AuthVerifyLayer};
+use protocol::{
+	main::{Empty, main_server::Main},
+	tonic::{self, Request, Response},
+};
 use sqlx::PgPool;
+use std::env;
 use tower::Layer;
 
 mod auth;
+mod auth_verify;
+mod version_check;
 
 pub struct MainImpl;
 
@@ -28,46 +27,20 @@ impl Main for MainImpl {
 	}
 }
 
-fn version_check(req: Request<()>) -> tonic::Result<Request<()>> {
-	match req.metadata().get("version") {
-		Some(version) => {
-			let version = version
-				.to_str()
-				.map_err(|_| Status::invalid_argument("`version` not valid str"))?;
-			let version = semver::Version::parse(version)
-				.map_err(|_| Status::invalid_argument("`version` not valid semver version"))?;
-
-			let requirement = semver::Comparator {
-				op: semver::Op::Caret,
-				major: protocol::VERSION.major,
-				minor: Some(protocol::VERSION.minor),
-				patch: Some(protocol::VERSION.patch),
-				pre: semver::Prerelease::EMPTY,
-			};
-
-			if !requirement.matches(&version) {
-				return Err(Status::permission_denied(format!(
-					"Incompatible version. Requirement: {requirement}"
-				)));
-			}
-
-			Ok(req)
-		}
-		None => Err(Status::permission_denied(
-			"Request must contain the `version` metadata",
-		)),
-	}
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
 	let db = PgPool::connect(&env::var("DATABASE_URL")?).await?;
 
-	let auth_layer = AuthLayer { db: db.clone() };
+	let auth_layer = AuthVerifyLayer { db: db.clone() };
 
 	tonic::transport::Server::builder()
-		.layer(tonic::service::InterceptorLayer::new(version_check))
-		.add_service(auth_layer.layer(protocol::main_server::MainServer::new(MainImpl)))
+		.layer(tonic::service::InterceptorLayer::new(
+			version_check::version_check,
+		))
+		.add_service(auth_layer.layer(protocol::main::main_server::MainServer::new(MainImpl)))
+		.add_service(protocol::auth::auth_server::AuthServer::new(AuthImpl {
+			db: db.clone(),
+		}))
 		.serve("[::1]:50051".parse()?)
 		.await?;
 

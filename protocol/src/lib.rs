@@ -1,9 +1,11 @@
 pub use tonic;
 
-mod generated {
+pub mod main {
 	tonic::include_proto!("main");
 }
-pub use generated::*;
+pub mod auth {
+	tonic::include_proto!("auth");
+}
 
 /// Version of the protocol (which is just the version of this crate)
 ///
