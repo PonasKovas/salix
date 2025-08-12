@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 protocol = { path = "../protocol" }
+tokio-tungstenite.workspace = true
 tokio = { workspace = true, features = ["full"] }
-tokio-util = { workspace = true, features = ["compat"] }
 futures.workspace = true
 anyhow.workspace = true

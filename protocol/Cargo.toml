@@ -6,5 +6,3 @@ edition.workspace = true
 [dependencies]
 thiserror.workspace = true
 bitcode = { workspace = true, features = ["derive"] }
-semver.workspace = true
-tokio = { workspace = true, features = ["io-util"] }
