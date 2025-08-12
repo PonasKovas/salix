@@ -1,19 +1,24 @@
 use anyhow::Result;
 use axum::{
-	Error, Router,
-	extract::{Path, State, WebSocketUpgrade, ws::WebSocket},
+	Router,
+	extract::{
+		Path, State, WebSocketUpgrade,
+		ws::{Message, WebSocket},
+	},
 	http::StatusCode,
 	response::IntoResponse,
 	routing::any,
 };
 use clap::Parser;
 use logging::init_logging;
+use protocol::{C2S, ReadMessage};
 use sqlx::PgPool;
 use tracing::{error, info};
 
 mod cmd_args;
 mod config;
 mod logging;
+mod protocol_util;
 
 #[derive(Clone)]
 struct ServerState {
@@ -36,7 +41,7 @@ async fn main() -> Result<()> {
 	let state = ServerState { db };
 
 	let app = Router::new()
-		.route("/v/{version}", any(ws_handler))
+		.route("/v{version}", any(ws_handler))
 		.with_state(state);
 
 	let listener = tokio::net::TcpListener::bind(config.bind_to).await?;
@@ -59,7 +64,7 @@ async fn ws_handler(
 			}
 		})),
 		other => Err((
-			StatusCode::NOT_FOUND,
+			StatusCode::NOT_IMPLEMENTED,
 			format!(
 				"Protocol version v{other} not supported. Server running v{}",
 				protocol::VERSION
@@ -68,9 +73,13 @@ async fn ws_handler(
 	}
 }
 
-async fn handle_socket(state: ServerState, mut socket: WebSocket) -> Result<(), Error> {
+async fn handle_socket(state: ServerState, mut socket: WebSocket) -> Result<()> {
 	while let Some(frame) = socket.recv().await {
 		let frame = frame?;
+		if let Message::Binary(bytes) = &frame {
+			let parsed = C2S::read(bytes)?;
+			info!("{:?}", parsed);
+		}
 		info!("{frame:?}");
 	}
 

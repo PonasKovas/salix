@@ -17,7 +17,7 @@ pub const VERSION: u32 = 1;
 
 gen_from_impls_for_variants! {
 /// Client to server messages
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, Debug)]
 pub enum C2S {
 	Hello(Hello),
 }
@@ -25,7 +25,7 @@ pub enum C2S {
 
 gen_from_impls_for_variants! {
 /// Server to client messages
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, Debug)]
 pub enum S2C {
 
 }

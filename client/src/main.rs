@@ -1,21 +1,21 @@
 use anyhow::Result;
-use futures::SinkExt;
-use protocol::{C2S, WriteMessage, c2s::Hello};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use protocol::c2s::Hello;
+use protocol_util::WebSocketExt;
+use tokio_tungstenite::connect_async;
+
+mod protocol_util;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	let (mut ws_stream, _) = connect_async("ws://127.0.0.1:3000/v/1").await?;
+	let (mut ws_stream, _) = connect_async("ws://127.0.0.1:3000/v1").await?;
 
 	ws_stream
-		.send(Message::Binary(
-			C2S::from(Hello {
-				message: format!("HELLO!!!"),
-			})
-			.write()
-			.into(),
-		))
+		.send(Hello {
+			message: format!("HELLO!!!"),
+		})
 		.await?;
+
+	ws_stream.close(None).await?;
 
 	Ok(())
 }
