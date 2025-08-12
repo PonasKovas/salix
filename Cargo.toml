@@ -19,6 +19,8 @@ uuid = "1.17.0"
 tokio-tungstenite = "0.27.0"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+toml = "0.9.5"
+clap = "4.5.44"
 
 # questionable purpose:
 bytes = "1.10.1"

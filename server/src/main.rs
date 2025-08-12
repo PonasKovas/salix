@@ -6,11 +6,13 @@ use axum::{
 	response::IntoResponse,
 	routing::any,
 };
+use clap::Parser;
 use logging::init_logging;
 use sqlx::PgPool;
-use std::env;
 use tracing::{error, info};
 
+mod cmd_args;
+mod config;
 mod logging;
 
 #[derive(Clone)]
@@ -22,7 +24,14 @@ struct ServerState {
 async fn main() -> Result<()> {
 	init_logging();
 
-	let db = PgPool::connect(&env::var("DATABASE_URL")?).await?;
+	let args = cmd_args::Args::parse();
+	let config = config::read_config(&args.config).await?;
+
+	let db = PgPool::connect(&config.database_url).await?;
+
+	if !args.no_migrate {
+		sqlx::migrate!().run(&db).await?;
+	}
 
 	let state = ServerState { db };
 
@@ -30,7 +39,8 @@ async fn main() -> Result<()> {
 		.route("/v/{version}", any(ws_handler))
 		.with_state(state);
 
-	let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+	let listener = tokio::net::TcpListener::bind(config.bind_to).await?;
+	info!("TCP listener bound on {}", listener.local_addr()?);
 	axum::serve(listener, app).await.unwrap();
 
 	Ok(())

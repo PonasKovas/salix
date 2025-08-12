@@ -14,3 +14,6 @@ tower.workspace = true
 sqlx = { workspace = true, features = ["runtime-tokio", "postgres", "uuid"] }
 uuid = { workspace = true, features = ["v7", "fast-rng"] }
 axum = { workspace = true, features = ["ws"] }
+toml = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+clap = { workspace = true, features = ["derive", "unicode", "wrap_help"] }
