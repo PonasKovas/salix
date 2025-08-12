@@ -6,7 +6,7 @@ use c2s::*;
 use enum_macro::gen_from_impls_for_variants;
 use s2c::*;
 
-pub use message::{ReadError, ReadMessage, WriteMessage};
+pub use message::{ReadMessage, WriteMessage};
 
 /// Client to server messages
 pub mod c2s;

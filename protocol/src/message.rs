@@ -1,6 +1,5 @@
 use crate::{C2S, S2C};
 use bitcode::{DecodeOwned, Encode};
-use thiserror::Error;
 
 /// Protocol messages that can be written
 pub trait WriteMessage {
@@ -10,13 +9,8 @@ pub trait WriteMessage {
 /// Protocol messages that can be read
 pub trait ReadMessage: Sized {
 	/// Reads the message from the given `AsyncRead` object.
-	fn read(from: &[u8]) -> Result<Self, ReadError>;
+	fn read(from: &[u8]) -> Result<Self, bitcode::Error>;
 }
-
-/// Protocol reading error
-#[derive(Error, Debug)]
-#[error("{0}")]
-pub struct ReadError(#[from] bitcode::Error);
 
 impl WriteMessage for S2C {
 	fn write(&self) -> Vec<u8> {
@@ -24,7 +18,7 @@ impl WriteMessage for S2C {
 	}
 }
 impl ReadMessage for S2C {
-	fn read(from: &[u8]) -> Result<Self, ReadError> {
+	fn read(from: &[u8]) -> Result<Self, bitcode::Error> {
 		decode(from)
 	}
 }
@@ -35,7 +29,7 @@ impl WriteMessage for C2S {
 	}
 }
 impl ReadMessage for C2S {
-	fn read(from: &[u8]) -> Result<Self, ReadError> {
+	fn read(from: &[u8]) -> Result<Self, bitcode::Error> {
 		decode(from)
 	}
 }
@@ -44,6 +38,6 @@ fn encode<T: Encode>(val: &T) -> Vec<u8> {
 	bitcode::encode(val)
 }
 
-fn decode<T: DecodeOwned>(from: &[u8]) -> Result<T, ReadError> {
+fn decode<T: DecodeOwned>(from: &[u8]) -> Result<T, bitcode::Error> {
 	Ok(bitcode::decode(from)?)
 }

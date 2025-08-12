@@ -6,12 +6,12 @@ use axum::{
 	response::IntoResponse,
 	routing::any,
 };
+use logging::init_logging;
 use sqlx::PgPool;
 use std::env;
+use tracing::{error, info};
 
-// mod auth;
-// mod auth_verify;
-// mod version_check;
+mod logging;
 
 #[derive(Clone)]
 struct ServerState {
@@ -20,6 +20,8 @@ struct ServerState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	init_logging();
+
 	let db = PgPool::connect(&env::var("DATABASE_URL")?).await?;
 
 	let state = ServerState { db };
@@ -43,7 +45,7 @@ async fn ws_handler(
 	match version {
 		protocol::VERSION => Ok(ws.on_upgrade(move |socket| async move {
 			if let Err(e) = handle_socket(state, socket).await {
-				eprintln!("error: {e}");
+				error!("{e}");
 			}
 		})),
 		other => Err((
@@ -59,7 +61,7 @@ async fn ws_handler(
 async fn handle_socket(state: ServerState, mut socket: WebSocket) -> Result<(), Error> {
 	while let Some(frame) = socket.recv().await {
 		let frame = frame?;
-		println!("{frame:?}");
+		info!("{frame:?}");
 	}
 
 	Ok(())
