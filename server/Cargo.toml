@@ -17,3 +17,4 @@ axum = { workspace = true, features = ["ws"] }
 toml = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 clap = { workspace = true, features = ["derive", "unicode", "wrap_help"] }
+argon2.workspace = true

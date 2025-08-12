@@ -1,4 +1,5 @@
 use anyhow::Result;
+use auth::auth_routes;
 use axum::{
 	Router,
 	extract::{
@@ -15,6 +16,7 @@ use protocol::{C2S, ReadMessage};
 use sqlx::PgPool;
 use tracing::{error, info};
 
+mod auth;
 mod cmd_args;
 mod config;
 mod logging;
@@ -41,6 +43,7 @@ async fn main() -> Result<()> {
 	let state = ServerState { db };
 
 	let app = Router::new()
+		.nest("/auth", auth_routes())
 		.route("/v{version}", any(ws_handler))
 		.with_state(state);
 
