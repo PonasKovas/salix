@@ -1,8 +1,0 @@
-syntax = "proto3";
-package main;
-
-service Main {
-	rpc SayHello (Empty) returns (Empty);
-}
-
-message Empty {}
