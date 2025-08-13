@@ -1,6 +1,6 @@
 use bitcode::{Decode, Encode};
 
 #[derive(Encode, Decode, Debug)]
-pub struct Hello {
-	pub message: String,
+pub struct Authenticate {
+	pub auth_token: [u8; 16],
 }

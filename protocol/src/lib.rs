@@ -22,7 +22,7 @@ gen_from_impls_for_variants! {
 /// Client to server messages
 #[derive(Encode, Decode, Debug)]
 pub enum C2S {
-	Hello(Hello),
+	Authenticate(Authenticate),
 }
 }
 
@@ -31,5 +31,6 @@ gen_from_impls_for_variants! {
 #[derive(Encode, Decode, Debug)]
 pub enum S2C {
 	Error(Error),
+	UserInfo(UserInfo),
 }
 }

@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-bitcode = { workspace = true, features = ["derive"] }
+bitcode = { workspace = true, features = ["derive", "serde"] }
 serde = { workspace = true, features = ["derive"] }
 uuid = { workspace = true, features = ["serde"] }
+thiserror.workspace = true

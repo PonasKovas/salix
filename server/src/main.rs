@@ -1,5 +1,4 @@
 use anyhow::Result;
-use auth::auth_routes;
 use axum::{
 	Router,
 	extract::{
@@ -11,14 +10,15 @@ use axum::{
 	routing::any,
 };
 use clap::Parser;
+use endpoints::{auth::auth_routes, main::main_endpoint};
 use logging::init_logging;
 use protocol::{C2S, ReadMessage};
 use sqlx::PgPool;
 use tracing::{error, info};
 
-mod auth;
 mod cmd_args;
 mod config;
+mod endpoints;
 mod logging;
 mod protocol_util;
 
@@ -44,47 +44,13 @@ async fn main() -> Result<()> {
 
 	let app = Router::new()
 		.nest("/auth", auth_routes())
-		.route("/v{version}", any(ws_handler))
+		.route("/v{version}", any(main_endpoint))
 		.with_state(state);
 
 	let listener = tokio::net::TcpListener::bind(config.bind_to).await?;
+
 	info!("TCP listener bound on {}", listener.local_addr()?);
 	axum::serve(listener, app).await.unwrap();
-
-	Ok(())
-}
-
-async fn ws_handler(
-	ws: WebSocketUpgrade,
-	Path(version): Path<u32>,
-	State(state): State<ServerState>,
-) -> impl IntoResponse {
-	// might want to support multiple versions later
-	match version {
-		protocol::VERSION => Ok(ws.on_upgrade(move |socket| async move {
-			if let Err(e) = handle_socket(state, socket).await {
-				error!("{e}");
-			}
-		})),
-		other => Err((
-			StatusCode::NOT_IMPLEMENTED,
-			format!(
-				"Protocol version v{other} not supported. Server running v{}",
-				protocol::VERSION
-			),
-		)),
-	}
-}
-
-async fn handle_socket(state: ServerState, mut socket: WebSocket) -> Result<()> {
-	while let Some(frame) = socket.recv().await {
-		let frame = frame?;
-		if let Message::Binary(bytes) = &frame {
-			let parsed = C2S::read(bytes)?;
-			info!("{:?}", parsed);
-		}
-		info!("{frame:?}");
-	}
 
 	Ok(())
 }
