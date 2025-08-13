@@ -5,7 +5,6 @@ CREATE TABLE users (
     password TEXT NOT NULL
 );
 
-
 CREATE TABLE active_sessions (
     token UUID PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

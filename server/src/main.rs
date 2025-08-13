@@ -1,20 +1,10 @@
 use anyhow::Result;
-use axum::{
-	Router,
-	extract::{
-		Path, State, WebSocketUpgrade,
-		ws::{Message, WebSocket},
-	},
-	http::StatusCode,
-	response::IntoResponse,
-	routing::any,
-};
+use axum::{Router, routing::any};
 use clap::Parser;
 use endpoints::{auth::auth_routes, main::main_endpoint};
 use logging::init_logging;
-use protocol::{C2S, ReadMessage};
 use sqlx::PgPool;
-use tracing::{error, info};
+use tracing::info;
 
 mod cmd_args;
 mod config;

@@ -23,6 +23,7 @@ gen_from_impls_for_variants! {
 #[derive(Encode, Decode, Debug)]
 pub enum C2S {
 	Authenticate(Authenticate),
+	SendMessage(SendMessage),
 }
 }
 
@@ -32,5 +33,6 @@ gen_from_impls_for_variants! {
 pub enum S2C {
 	Error(Error),
 	UserInfo(UserInfo),
+	NewMessage(NewMessage),
 }
 }

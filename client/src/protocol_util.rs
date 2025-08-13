@@ -7,14 +7,14 @@ use tokio_tungstenite::{
 };
 
 pub trait WebSocketExt {
-	async fn send<T>(&mut self, msg: T) -> Result<(), Error>
+	async fn send_packet<T>(&mut self, msg: T) -> Result<(), Error>
 	where
 		T: Into<C2S>;
 	async fn ping(&mut self) -> Result<(), Error>;
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> WebSocketExt for WebSocketStream<S> {
-	async fn send<T>(&mut self, msg: T) -> Result<(), Error>
+	async fn send_packet<T>(&mut self, msg: T) -> Result<(), Error>
 	where
 		T: Into<C2S>,
 	{

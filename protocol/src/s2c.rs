@@ -7,9 +7,21 @@ pub enum Error {
 	InvalidPacket,
 	#[error("internal server error")]
 	Internal,
+	#[error("unauthenticated")]
+	Unauthenticated,
+	#[error("invalid auth token")]
+	Unauthorized,
+	#[error("unexpected packet")]
+	UnexpectedPacket,
 }
 
 #[derive(Encode, Decode, Debug)]
 pub struct UserInfo {
 	pub username: String,
+}
+
+#[derive(Encode, Decode, Debug)]
+pub struct NewMessage {
+	pub user: String,
+	pub message: String,
 }

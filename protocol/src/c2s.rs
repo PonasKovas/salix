@@ -4,3 +4,8 @@ use bitcode::{Decode, Encode};
 pub struct Authenticate {
 	pub auth_token: [u8; 16],
 }
+
+#[derive(Encode, Decode, Debug)]
+pub struct SendMessage {
+	pub message: String,
+}
