@@ -1,7 +1,9 @@
+CREATE EXTENSION IF NOT EXISTS citext;
+
 CREATE TABLE users (
     id UUID PRIMARY KEY,
-    username VARCHAR(40) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE, -- must be stored lowercase
+    username citext NOT NULL UNIQUE,
+    email citext NOT NULL UNIQUE,
     password TEXT NOT NULL
 );
 
