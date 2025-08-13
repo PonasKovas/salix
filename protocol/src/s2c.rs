@@ -13,6 +13,10 @@ pub enum Error {
 	Unauthorized,
 	#[error("unexpected packet")]
 	UnexpectedPacket,
+	#[error("timed out")]
+	TimedOut,
+	#[error("unexpected text frame")]
+	TextFrame,
 }
 
 #[derive(Encode, Decode, Debug)]

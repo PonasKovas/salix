@@ -78,8 +78,8 @@ async fn new_account(
 	.map_err(|e| {
 		if let sqlx::Error::Database(db_err) = e {
 			match (db_err.is_unique_violation(), db_err.constraint()) {
-				(true, Some("username")) => Error::UsernameConflict(request.username),
-				(true, Some("email")) => Error::EmailConflict(request.email),
+				(true, Some("users_username_key")) => Error::UsernameConflict(request.username),
+				(true, Some("users_email_key")) => Error::EmailConflict(request.email),
 				_ => sqlx::Error::Database(db_err).into(),
 			}
 		} else {

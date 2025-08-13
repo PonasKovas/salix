@@ -10,3 +10,25 @@ CREATE TABLE active_sessions (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at TIMESTAMPTZ NOT NULL
 );
+
+CREATE TABLE messages (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    sent_at TIMESTAMPTZ NOT NULL
+);
+
+
+CREATE FUNCTION notify_new_message_with_id() RETURNS TRIGGER AS $$
+BEGIN
+  PERFORM pg_notify(
+    'chat', -- || NEW.room_id,
+    NEW.id::text -- cast uuid to text, because triggers can only have text payload
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER messages_insert_trigger
+    AFTER INSERT ON messages
+    FOR EACH ROW EXECUTE FUNCTION notify_new_message_with_id();
