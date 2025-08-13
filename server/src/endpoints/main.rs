@@ -28,7 +28,7 @@ pub async fn main_endpoint(
 				error!("{e}");
 
 				let error_to_send_client: s2c::Error = match e {
-					Error::Axum(_) => return, // axum error very bad
+					Error::Axum(_) => return, // axum error very bad, dont even try sending
 					other => other.into(),
 				};
 
@@ -124,17 +124,7 @@ async fn handle_socket(server: &ServerState, socket: &mut Socket<'_>) -> Result<
 	let mut state = ConnectionState { user_id };
 	let mut new_msgs = new_msg_listener(&server).await?;
 	loop {
-		if let Err(e) = next_event(server, &mut state, socket, &mut new_msgs).await {
-			let error_to_send_client: s2c::Error = match e {
-				Error::Axum(_) => return Err(e), // axum errors mean the stream is severed and connection must be ended
-				other => {
-					error!("{other}");
-					other.into()
-				}
-			};
-
-			socket.send_packet(error_to_send_client).await?;
-		}
+		next_event(server, &mut state, socket, &mut new_msgs).await?;
 	}
 }
 
