@@ -13,6 +13,9 @@ pub mod c2s;
 /// Server to client messages
 pub mod s2c;
 
+/// `/auth` endpoint
+pub mod auth;
+
 pub const VERSION: u32 = 1;
 
 gen_from_impls_for_variants! {
@@ -27,6 +30,6 @@ gen_from_impls_for_variants! {
 /// Server to client messages
 #[derive(Encode, Decode, Debug)]
 pub enum S2C {
-
+	Error(Error),
 }
 }

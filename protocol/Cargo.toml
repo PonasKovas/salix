@@ -5,3 +5,5 @@ edition.workspace = true
 
 [dependencies]
 bitcode = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+uuid = { workspace = true, features = ["serde"] }
