@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, password FROM users WHERE email = $1",
+  "query": "SELECT users.id, users.username FROM active_sessions JOIN users ON active_sessions.user_id = users.id WHERE active_sessions.token = $1",
   "describe": {
     "columns": [
       {
@@ -10,18 +10,18 @@
       },
       {
         "ordinal": 1,
-        "name": "password",
-        "type_info": "Text"
-      }
-    ],
-    "parameters": {
-      "Left": [
-        {
+        "name": "username",
+        "type_info": {
           "Custom": {
             "name": "citext",
             "kind": "Simple"
           }
         }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
       ]
     },
     "nullable": [
@@ -29,5 +29,5 @@
       false
     ]
   },
-  "hash": "b3de938995c744adfb9171880990e92f295faf8618cf0f5650d91c9067be6821"
+  "hash": "f051ccb8f98398d2be46d71ca772e02bf072291656186b66acaec308dc272831"
 }

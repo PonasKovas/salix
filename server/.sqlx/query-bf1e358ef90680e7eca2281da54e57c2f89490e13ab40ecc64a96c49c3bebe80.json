@@ -6,8 +6,18 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Varchar",
-        "Varchar",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
         "Text"
       ]
     },
