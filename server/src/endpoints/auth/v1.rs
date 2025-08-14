@@ -1,4 +1,4 @@
-use crate::ServerState;
+use crate::{ServerState, db};
 use anyhow::Context;
 use argon2::{
 	Algorithm, Argon2, Params, PasswordVerifier, Version,
@@ -94,21 +94,12 @@ async fn login(
 	State(state): State<ServerState>,
 	Json(request): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, Error> {
-	let row = sqlx::query!(
-		r#"SELECT id, password FROM users WHERE email = $1"#,
-		request.email,
-	)
-	.fetch_one(&state.db)
-	.await
-	.map_err(|e| {
-		if let sqlx::Error::RowNotFound = e {
-			Error::Unauthorized
-		} else {
-			e.into()
-		}
-	})?;
+	let user = db::User::by_email(&request.email)
+		.fetch_optional(&state.db)
+		.await?
+		.ok_or(Error::Unauthorized)?;
 
-	let hash = PasswordHash::new(&row.password).with_context(|| format!("{row:?}"))?;
+	let hash = PasswordHash::new(&user.password).with_context(|| format!("{user:?}"))?;
 
 	argon2()
 		.verify_password(request.password.as_bytes(), &hash)
@@ -120,7 +111,7 @@ async fn login(
 	sqlx::query!(
 		r#"INSERT INTO active_sessions (token, user_id, expires_at) VALUES ($1, $2, NOW() + $3)"#,
 		token,
-		row.id,
+		user.id,
 		AUTH_TOKEN_LIFETIME
 	)
 	.execute(&state.db)

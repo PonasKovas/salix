@@ -8,6 +8,7 @@ use tracing::info;
 
 mod cmd_args;
 mod config;
+mod db;
 mod endpoints;
 mod logging;
 mod protocol_util;

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.id AS user_id, u.username, m.message FROM messages AS m JOIN users AS u ON m.user_id = u.id WHERE m.id = $1",
+  "query": "SELECT u.id AS user_id, u.username, m.message, m.sequence_id FROM messages AS m JOIN users AS u ON m.user_id = u.id WHERE m.id = $1",
   "describe": {
     "columns": [
       {
@@ -22,6 +22,11 @@
         "ordinal": 2,
         "name": "message",
         "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "sequence_id",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -32,8 +37,9 @@
     "nullable": [
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "abd28fc9b9da0c2ac259ee50699660e01e4691c156d46232d7d61e7dbc4dc019"
+  "hash": "33dd25c11b77c862c5de2aac45e7aca5cdf2e925394a29c17adcbfb7558a2a73"
 }

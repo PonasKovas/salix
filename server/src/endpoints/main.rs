@@ -1,5 +1,5 @@
-use crate::ServerState;
 use crate::protocol_util::{RecvError, Socket};
+use crate::{ServerState, db};
 use anyhow::{Context, Result};
 use axum::{
 	extract::{Path, State, WebSocketUpgrade},
@@ -48,6 +48,7 @@ pub async fn main_endpoint(
 
 struct ConnectionState {
 	user_id: Uuid,
+	last_msg_seq_id: Option<i64>,
 }
 
 #[derive(Error, Debug)]
@@ -111,17 +112,27 @@ async fn handle_socket(server: &ServerState, socket: &mut Socket<'_>) -> Result<
 		C2S::Authenticate(authenticate) => {
 			let token = Uuid::from_bytes(authenticate.auth_token);
 
-			let (user_id, username) = verify_auth(server, token).await?;
+			let user = db::User::by_auth_token(token)
+				.fetch_optional(&server.db)
+				.await?
+				.ok_or(Error::Unauthorized)?;
 
-			socket.send_packet(UserInfo { username }).await?;
-			user_id
+			socket
+				.send_packet(UserInfo {
+					username: user.username,
+				})
+				.await?;
+			user.id
 		}
 		_ => return Err(Error::Unauthenticated),
 	};
 
 	// great, now can start normal stuff
 
-	let mut state = ConnectionState { user_id };
+	let mut state = ConnectionState {
+		user_id,
+		last_msg_seq_id: None,
+	};
 	let mut new_msgs = new_msg_listener(&server).await?;
 	loop {
 		next_event(server, &mut state, socket, &mut new_msgs).await?;
@@ -136,18 +147,25 @@ async fn next_event(
 ) -> Result<(), Error> {
 	select! {
 		packet = socket.recv() => {
-			let packet = packet?;
-
-			handle_packet(server, state, socket, packet).await?;
+			handle_packet(server, state, socket, packet?).await?;
 		}
 		msg = new_msgs.recv() => {
 			match msg.context("new msg listener task dropped?")? {
 				NewMsgListenerUpdate::Disconnect => {
 					// fetch all recent messages manually
-					// TODO
+					if let Some(last_msg_id) = state.last_msg_seq_id {
+						for msg in fetch_messages_since(server, last_msg_id).await? {
+							socket.send_packet(s2c::NewMessage{
+								user: msg.username,
+								message: msg.message,
+							}).await?;
+						}
+					}
 				},
 				NewMsgListenerUpdate::NewMsg(uuid) => {
 					let message = fetch_message(server, uuid).await?;
+
+					state.last_msg_seq_id = Some(message.sequence_id);
 
 					socket.send_packet(s2c::NewMessage{
 						user: message.username,
@@ -223,34 +241,17 @@ async fn new_msg_listener(
 
 // sql helpers
 
-async fn verify_auth(server: &ServerState, token: Uuid) -> Result<(Uuid, String), Error> {
-	let row = sqlx::query!(
-		r#"SELECT users.id, users.username FROM active_sessions JOIN users ON active_sessions.user_id = users.id WHERE active_sessions.token = $1"#,
-		token,
-	)
-	.fetch_one(&server.db)
-	.await
-	.map_err(|e| {
-		if let sqlx::Error::RowNotFound = e {
-			Error::Unauthorized
-		} else {
-			e.into()
-		}
-	})?;
-
-	Ok((row.id, row.username))
-}
-
 struct Message {
 	user_id: Uuid,
 	username: String,
+	sequence_id: i64,
 	message: String,
 }
 
 async fn fetch_message(server: &ServerState, message_id: Uuid) -> Result<Message, Error> {
 	let message = sqlx::query_as!(
 		Message,
-		r#"SELECT u.id AS user_id, u.username, m.message FROM messages AS m JOIN users AS u ON m.user_id = u.id WHERE m.id = $1"#,
+		r#"SELECT u.id AS user_id, u.username, m.message, m.sequence_id FROM messages AS m JOIN users AS u ON m.user_id = u.id WHERE m.id = $1"#,
 		message_id,
 	)
 	.fetch_one(&server.db)
@@ -271,4 +272,16 @@ async fn insert_message(server: &ServerState, user_id: Uuid, message: &str) -> R
 	.await?;
 
 	Ok(msg_id)
+}
+
+async fn fetch_messages_since(server: &ServerState, seq_id: i64) -> Result<Vec<Message>, Error> {
+	let messages = sqlx::query_as!(
+		Message,
+		r#"SELECT u.id AS user_id, u.username, m.message, m.sequence_id FROM messages AS m JOIN users AS u ON m.user_id = u.id WHERE m.sequence_id > $1"#,
+		seq_id,
+	)
+	.fetch_all(&server.db)
+	.await?;
+
+	Ok(messages)
 }

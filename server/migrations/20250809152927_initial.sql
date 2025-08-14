@@ -15,9 +15,12 @@ CREATE TABLE active_sessions (
 
 CREATE TABLE messages (
     id UUID PRIMARY KEY,
+    sequence_id BIGSERIAL NOT NULL,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
-    sent_at TIMESTAMPTZ NOT NULL
+    sent_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT messages_sequence_id_key UNIQUE (sequence_id)
 );
 
 
