@@ -1,5 +1,5 @@
-use axum::extract::ws::{Message, WebSocket};
-use protocol::{C2S, ReadMessage, S2C, WriteMessage};
+use axum::extract::ws::{Message as WSMessage, WebSocket};
+use protocol::{C2S, IntoMessage, Message, S2C};
 use std::{future::pending, time::Duration};
 use thiserror::Error;
 use tokio::{
@@ -40,24 +40,20 @@ impl<'a> Socket<'a> {
 			last_ping_sent: None,
 		}
 	}
-	pub async fn send_packet<T>(&mut self, msg: T) -> Result<(), axum::Error>
-	where
-		T: Into<S2C>,
-	{
-		let msg = msg.into();
-		let bytes = msg.write();
+	pub async fn send_packet(&mut self, msg: impl IntoMessage<S2C>) -> Result<(), axum::Error> {
+		let bytes = msg.into_message().write();
 
-		self.socket.send(Message::Binary(bytes.into())).await
+		self.socket.send(WSMessage::Binary(bytes.into())).await
 	}
 	pub async fn close(&mut self) -> Result<(), axum::Error> {
-		self.socket.send(Message::Close(None)).await
+		self.socket.send(WSMessage::Close(None)).await
 	}
-	pub async fn recv(&mut self) -> Result<C2S, RecvError> {
+	pub async fn recv<P: Message<C2S>>(&mut self) -> Result<P, RecvError> {
 		loop {
 			select! {
 				_ = self.ping_interval.tick() => {
 					self.last_ping_sent = Some(Instant::now());
-					self.socket.send(Message::Ping(Vec::new().into())).await?;
+					self.socket.send(WSMessage::Ping(Vec::new().into())).await?;
 				},
 				_ = async {
 					match self.last_ping_sent {
@@ -74,19 +70,19 @@ impl<'a> Socket<'a> {
 					};
 
 					let packet_bytes = match frame {
-						Message::Binary(x) => x,
-						Message::Pong(_) => {
+						WSMessage::Binary(x) => x,
+						WSMessage::Pong(_) => {
 							self.last_ping_sent = None;
 							continue;
 						}
-						Message::Text(_) => {
+						WSMessage::Text(_) => {
 							return Err(RecvError::TextFrame);
 						}
 						// pings/close frames from client are handled by axum automatically
 						_ => continue,
 					};
 
-					let packet = C2S::read(&packet_bytes).map_err(|_| RecvError::InvalidPacket)?;
+					let packet = P::read(&packet_bytes).map_err(|_| RecvError::InvalidPacket)?;
 
 					return Ok(packet);
 				},

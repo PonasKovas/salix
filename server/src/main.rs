@@ -1,21 +1,24 @@
 use anyhow::Result;
 use axum::{Router, routing::any};
 use clap::Parser;
+use db::Database;
 use endpoints::{auth::auth_routes, main::main_endpoint};
 use logging::init_logging;
-use sqlx::PgPool;
 use tracing::info;
+use update_listener::UpdateListener;
 
 mod cmd_args;
 mod config;
 mod db;
 mod endpoints;
 mod logging;
-mod protocol_util;
+mod socket;
+mod update_listener;
 
 #[derive(Clone)]
 struct ServerState {
-	db: PgPool,
+	db: Database,
+	updates: UpdateListener,
 }
 
 #[tokio::main]
@@ -25,13 +28,11 @@ async fn main() -> Result<()> {
 	let args = cmd_args::Args::parse();
 	let config = config::read_config(&args.config).await?;
 
-	let db = PgPool::connect(&config.database_url).await?;
-
-	if !args.no_migrate {
-		sqlx::migrate!().run(&db).await?;
-	}
-
-	let state = ServerState { db };
+	let db = Database::init(&config, &args).await?;
+	let state = ServerState {
+		updates: UpdateListener::init(&config, &args, &db).await?,
+		db,
+	};
 
 	let app = Router::new()
 		.nest("/auth", auth_routes())

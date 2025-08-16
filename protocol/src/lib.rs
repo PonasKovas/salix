@@ -1,12 +1,13 @@
-mod enum_macro;
+mod r#macro;
 mod message;
 
 use bitcode::{Decode, Encode};
 use c2s::*;
-use enum_macro::gen_from_impls_for_variants;
+use r#macro::{from_variants, message};
 use s2c::*;
 
-pub use message::{ReadMessage, WriteMessage};
+pub use bitcode::Error;
+pub use message::{IntoMessage, Message};
 
 /// Client to server messages
 pub mod c2s;
@@ -18,21 +19,31 @@ pub mod auth;
 
 pub const VERSION: u32 = 1;
 
-gen_from_impls_for_variants! {
+message!(C2S => C2S);
+from_variants! {
 /// Client to server messages
+///
+/// This contains all messages that the client can send in the normal state.
+/// That doesn't include state specific packets such as [`c2s::Authenticate`] for example.
+///
+/// Additionally this enum serves as a packet direction marker for the [`Message`] and [`IntoMessage`] traits.
 #[derive(Encode, Decode, Debug)]
 pub enum C2S {
-	Authenticate(Authenticate),
 	SendMessage(SendMessage),
 }
 }
 
-gen_from_impls_for_variants! {
+message!(S2C => S2C);
+from_variants! {
 /// Server to client messages
+///
+/// This contains all messages that the server can send in the normal state.
+/// That doesn't include state specific packets such as [`s2c::UserInfo`] for example.
+///
+/// Additionally this enum serves as a packet direction marker for the [`Message`] and [`IntoMessage`] traits.
 #[derive(Encode, Decode, Debug)]
 pub enum S2C {
-	Error(Error),
-	UserInfo(UserInfo),
+	Error(s2c::Error),
 	NewMessage(NewMessage),
 }
 }

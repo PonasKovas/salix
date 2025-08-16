@@ -1,4 +1,11 @@
+use super::Database;
 use chrono::{DateTime, Local};
+use futures::Stream;
+use sqlx::{Executor, Postgres};
+use std::{
+	ops::{Bound, RangeBounds},
+	pin::Pin,
+};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
@@ -10,8 +17,8 @@ pub struct Message {
 	pub sent_at: DateTime<Local>,
 }
 
-impl Message {
-	pub fn by_id(id: Uuid) -> map_type!('static, Message) {
+impl Database {
+	pub async fn message_by_id(&self, id: Uuid) -> sqlx::Result<Option<Message>> {
 		sqlx::query_as!(
 			Message,
 			r#"SELECT id, sequence_id, user_id, message, sent_at
@@ -19,5 +26,57 @@ impl Message {
 			WHERE id = $1"#,
 			id,
 		)
+		.fetch_optional(&self.inner)
+		.await
 	}
+	pub fn messages_by_seq_id(
+		&self,
+		seq_range: impl RangeBounds<i64>,
+	) -> Pin<Box<dyn Stream<Item = sqlx::Result<Message>> + Send + '_>> {
+		let start = match seq_range.start_bound() {
+			Bound::Included(s) => Some(*s),
+			Bound::Excluded(s) => Some(*s + 1),
+			Bound::Unbounded => None,
+		};
+		let end = match seq_range.end_bound() {
+			Bound::Included(e) => Some(*e),
+			Bound::Excluded(e) => Some(*e - 1),
+			Bound::Unbounded => None,
+		};
+
+		sqlx::query_as!(
+			Message,
+			r#"SELECT id, sequence_id, user_id, message, sent_at
+			FROM messages
+			WHERE
+	            ($1::BIGINT IS NULL OR sequence_id >= $1)
+	        AND
+	            ($2::BIGINT IS NULL OR sequence_id <= $2)
+	        ORDER BY sequence_id ASC"#,
+			start,
+			end
+		)
+		.fetch(&self.inner)
+	}
+	pub async fn insert_message(&self, user_id: Uuid, message: &str) -> sqlx::Result<Uuid> {
+		let msg_id = Uuid::now_v7();
+
+		sqlx::query!(
+			r#"INSERT INTO messages (id, user_id, message, sent_at)
+			VALUES ($1, $2, $3, NOW())"#,
+			msg_id,
+			user_id,
+			message
+		)
+		.execute(&self.inner)
+		.await
+		.map(|_| msg_id)
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct MessageInsert {
+	pub id: Uuid,
+	pub user_id: Uuid,
+	pub message: String,
 }

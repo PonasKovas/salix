@@ -1,3 +1,5 @@
+use crate::S2C;
+use crate::r#macro::message;
 use bitcode::{Decode, Encode};
 use thiserror::Error;
 
@@ -23,6 +25,7 @@ pub enum Error {
 pub struct UserInfo {
 	pub username: String,
 }
+message!(UserInfo => S2C);
 
 #[derive(Encode, Decode, Debug)]
 pub struct NewMessage {

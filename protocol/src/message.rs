@@ -1,43 +1,26 @@
-use crate::{C2S, S2C};
 use bitcode::{DecodeOwned, Encode};
 
-/// Protocol messages that can be written
-pub trait WriteMessage {
-	/// Writes the message to the given `AsyncWrite` object.
+/// Protocol messages
+pub trait Message<D>: Sized {
 	fn write(&self) -> Vec<u8>;
-}
-/// Protocol messages that can be read
-pub trait ReadMessage: Sized {
-	/// Reads the message from the given `AsyncRead` object.
-	fn read(from: &[u8]) -> Result<Self, bitcode::Error>;
+	fn read(from: &[u8]) -> Result<Self, crate::Error>;
 }
 
-impl WriteMessage for S2C {
-	fn write(&self) -> Vec<u8> {
-		encode(self)
-	}
-}
-impl ReadMessage for S2C {
-	fn read(from: &[u8]) -> Result<Self, bitcode::Error> {
-		decode(from)
-	}
-}
-
-impl WriteMessage for C2S {
-	fn write(&self) -> Vec<u8> {
-		encode(self)
-	}
-}
-impl ReadMessage for C2S {
-	fn read(from: &[u8]) -> Result<Self, bitcode::Error> {
-		decode(from)
-	}
-}
-
-fn encode<T: Encode>(val: &T) -> Vec<u8> {
+pub(crate) fn encode<T: Encode>(val: &T) -> Vec<u8> {
 	bitcode::encode(val)
 }
 
-fn decode<T: DecodeOwned>(from: &[u8]) -> Result<T, bitcode::Error> {
+pub(crate) fn decode<T: DecodeOwned>(from: &[u8]) -> Result<T, crate::Error> {
 	Ok(bitcode::decode(from)?)
+}
+
+// I would simply use `impl Into<P> where P: Message<D>` but compiler cant infer types then
+/// Can be converted into a message
+pub trait IntoMessage<D> {
+	fn into_message(self) -> impl Message<D>;
+}
+impl<T: Message<D>, D> IntoMessage<D> for T {
+	fn into_message(self) -> impl Message<D> {
+		self
+	}
 }

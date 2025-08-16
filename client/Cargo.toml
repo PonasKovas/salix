@@ -10,3 +10,4 @@ tokio = { workspace = true, features = ["full"] }
 futures.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
+thiserror.workspace = true

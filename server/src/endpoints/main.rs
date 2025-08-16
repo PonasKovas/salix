@@ -1,4 +1,4 @@
-use crate::protocol_util::{RecvError, Socket};
+use crate::socket::{RecvError, Socket};
 use crate::{ServerState, db};
 use anyhow::{Context, Result};
 use axum::{
@@ -6,6 +6,7 @@ use axum::{
 	http::StatusCode,
 	response::IntoResponse,
 };
+use futures::StreamExt;
 use protocol::C2S;
 use protocol::s2c::{self, UserInfo};
 use sqlx::postgres::PgListener;
@@ -112,8 +113,9 @@ async fn handle_socket(server: &ServerState, socket: &mut Socket<'_>) -> Result<
 		C2S::Authenticate(authenticate) => {
 			let token = Uuid::from_bytes(authenticate.auth_token);
 
-			let user = db::User::by_auth_token(token)
-				.fetch_optional(&server.db)
+			let user = server
+				.db
+				.user_by_auth_token(token)
 				.await?
 				.ok_or(Error::Unauthorized)?;
 
@@ -154,22 +156,31 @@ async fn next_event(
 				NewMsgListenerUpdate::Disconnect => {
 					// fetch all recent messages manually
 					if let Some(last_msg_id) = state.last_msg_seq_id {
-						for msg in fetch_messages_since(server, last_msg_id).await? {
+						let mut messages = server.db.messages_by_seq_id((last_msg_id+1)..);
+						while let Some(msg) = messages.next().await {
+							let msg = msg?;
 							socket.send_packet(s2c::NewMessage{
-								user: msg.username,
+								user: msg.user_id.to_string(),
 								message: msg.message,
 							}).await?;
+							state.last_msg_seq_id = Some(msg.sequence_id);
 						}
 					}
 				},
 				NewMsgListenerUpdate::NewMsg(uuid) => {
-					let message = fetch_message(server, uuid).await?;
+					let msg = match server.db.message_by_id(uuid).await? {
+						Some(x) => x,
+						None => {
+							error!("received new msg update but msg id doesnt exist");
+							return Ok(());
+						}
+					};
 
-					state.last_msg_seq_id = Some(message.sequence_id);
+					state.last_msg_seq_id = Some(msg.sequence_id);
 
 					socket.send_packet(s2c::NewMessage{
-						user: message.username,
-						message: message.message,
+						user: msg.user_id.to_string(),
+						message: msg.message,
 					}).await?;
 				},
 			}
@@ -188,7 +199,10 @@ async fn handle_packet(
 	match packet {
 		C2S::Authenticate(_) => return Err(Error::UnexpectedPacket),
 		C2S::SendMessage(send_message) => {
-			insert_message(server, state.user_id, &send_message.message).await?;
+			server
+				.db
+				.insert_message(state.user_id, &send_message.message)
+				.await?;
 		}
 	}
 
@@ -237,51 +251,4 @@ async fn new_msg_listener(
 	});
 
 	Ok(receiver)
-}
-
-// sql helpers
-
-struct Message {
-	user_id: Uuid,
-	username: String,
-	sequence_id: i64,
-	message: String,
-}
-
-async fn fetch_message(server: &ServerState, message_id: Uuid) -> Result<Message, Error> {
-	let message = sqlx::query_as!(
-		Message,
-		r#"SELECT u.id AS user_id, u.username, m.message, m.sequence_id FROM messages AS m JOIN users AS u ON m.user_id = u.id WHERE m.id = $1"#,
-		message_id,
-	)
-	.fetch_one(&server.db)
-	.await?;
-
-	Ok(message)
-}
-
-async fn insert_message(server: &ServerState, user_id: Uuid, message: &str) -> Result<Uuid, Error> {
-	let msg_id = Uuid::now_v7();
-	sqlx::query!(
-		r#"INSERT INTO messages (id, user_id, message, sent_at) VALUES ($1, $2, $3, NOW())"#,
-		msg_id,
-		user_id,
-		message
-	)
-	.execute(&server.db)
-	.await?;
-
-	Ok(msg_id)
-}
-
-async fn fetch_messages_since(server: &ServerState, seq_id: i64) -> Result<Vec<Message>, Error> {
-	let messages = sqlx::query_as!(
-		Message,
-		r#"SELECT u.id AS user_id, u.username, m.message, m.sequence_id FROM messages AS m JOIN users AS u ON m.user_id = u.id WHERE m.sequence_id > $1"#,
-		seq_id,
-	)
-	.fetch_all(&server.db)
-	.await?;
-
-	Ok(messages)
 }

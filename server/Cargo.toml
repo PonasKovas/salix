@@ -20,3 +20,5 @@ clap = { workspace = true, features = ["derive", "unicode", "wrap_help"] }
 argon2 = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 chrono = { workspace = true, features = ["serde"] }
+serde_json.workspace = true
+ahash.workspace = true

@@ -1,16 +1,23 @@
-macro_rules! map_type {
-    ($lifetime:lifetime, $return_type:ident) => {
-        sqlx::query::Map<
-			$lifetime,
-			sqlx::Postgres,
-			impl FnMut(<sqlx::Postgres as sqlx::Database>::Row) -> Result<$return_type, sqlx::Error> + Send,
-			impl Send + sqlx::IntoArguments<$lifetime, sqlx::Postgres>,
-		>
-    };
+use crate::{cmd_args::Args, config::Config};
+use sqlx::{Executor, PgPool, Postgres};
+
+pub mod active_sessions;
+pub mod message;
+pub mod user;
+
+#[derive(Clone, Debug)]
+pub struct Database {
+	pub inner: PgPool,
 }
 
-mod message;
-mod user;
+impl Database {
+	pub async fn init(config: &Config, args: &Args) -> sqlx::Result<Self> {
+		let pool = PgPool::connect(&config.database_url).await?;
 
-pub use message::Message;
-pub use user::User;
+		if !args.no_migrate {
+			sqlx::migrate!().run(&pool).await?;
+		}
+
+		Ok(Self { inner: pool })
+	}
+}
