@@ -1,5 +1,7 @@
 //! A local Publisher/Subscriber system built on tokio broadcast and mpsc channels.
 //!
+//! ![Diagram](https://raw.githubusercontent.com/PonasKovas/salix/refs/heads/master/tokio-pubsub/diagram.svg)
+//!
 //! # Guide
 //!
 //! - Create a new [`Publisher`]
