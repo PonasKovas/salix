@@ -1,24 +1,21 @@
 use crate::{
-	BroadcastMessage, Message, MpscMessage, Topic,
-	control::{CreateSubscriber, DestroySubscriber, SubscribeTopic, UnsubscribeTopic},
-	error::TopicDoesntExist,
+	BroadcastMessage, Message, MpscMessage, Topic, TopicContext,
+	control::ControlMessage,
+	error::{TopicAlreadyAdded, TopicDoesntExist, TopicNotSubscribed},
 	funnel_task::funnel_task,
 	options::Options,
 	publisher_handle::PublisherHandle,
 	subscriber::Subscriber,
 };
 use ahash::{HashMap, HashMapExt};
-use std::{collections::hash_map::Entry, marker::PhantomData, sync::Arc, task::Poll};
+use std::sync::Arc;
 use tokio::{
-	select, spawn,
+	spawn,
 	sync::{broadcast, mpsc},
 	task::AbortHandle,
 };
 
-type Mpsc<T> = (mpsc::Sender<T>, mpsc::Receiver<T>);
-type UMpsc<T> = (mpsc::UnboundedSender<T>, mpsc::UnboundedReceiver<T>);
-
-/// The entry structure.
+/// The main structure.
 ///
 /// A publisher manages subscribers and topics, publishes messages.
 ///
@@ -31,43 +28,41 @@ type UMpsc<T> = (mpsc::UnboundedSender<T>, mpsc::UnboundedReceiver<T>);
 ///
 /// `M` is the message type, used for messages in all topics. It will never be cloned,
 /// and instead be wrapped in an [`Arc`] before sending.
-pub struct Publisher<T, M> {
-	pub(crate) options: Options,
+///
+/// # `C` parameter
+///
+/// `C` is the topic context type, returned to a subscriber when it subscribes to a topic
+/// and may indicate failure by using something like `Result<T, Err>`.
+pub struct Publisher<T: Topic, M: Message, C: TopicContext> {
+	options: Options,
 
-	pub(crate) create_subscriber: Mpsc<CreateSubscriber<T, M>>,
-	pub(crate) subscribe: Mpsc<SubscribeTopic<T>>,
-	pub(crate) unsubscribe: Mpsc<UnsubscribeTopic<T>>,
-	// its fine to have this channel unbounded because
-	// each subscriber will only ever call it once at most
-	//
-	// since this will be sent to from the Drop impl of Subscriber,
-	// we dont want any backpressure
-	pub(crate) destroy_subscriber: UMpsc<DestroySubscriber>,
+	control_sender: mpsc::Sender<ControlMessage<T, M, C>>,
+	control_receiver: mpsc::Receiver<ControlMessage<T, M, C>>,
 
 	next_subscriber_id: u64,
-	pub(crate) subscribers: HashMap<u64, SubscriberData<T, M>>,
+	subscribers: HashMap<u64, SubscriberData<T, M>>,
 	topics: HashMap<T, broadcast::Sender<BroadcastMessage<M>>>,
 }
 
-pub(crate) struct SubscriberData<T, M> {
-	pub mpsc_sender: mpsc::Sender<MpscMessage<T, M>>,
-	pub funnel_tasks: HashMap<T, AbortHandle>,
+struct SubscriberData<T, M> {
+	mpsc_sender: mpsc::Sender<MpscMessage<T, M>>,
+	funnel_tasks: HashMap<T, AbortHandle>,
 }
 
-impl<T: Topic, M: Message> Publisher<T, M> {
+impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 	/// Creates a new [`Publisher`] with the default options
 	pub fn new() -> Self {
 		Self::with_options(Default::default())
 	}
 	/// Creates a new [`Publisher`] with the given options
 	pub fn with_options(options: Options) -> Self {
+		let (control_sender, control_receiver) = mpsc::channel(options.control_channel_size);
+
 		Self {
 			options,
 
-			create_subscriber: mpsc::channel(options.control_channels_size),
-			subscribe: mpsc::channel(options.control_channels_size),
-			unsubscribe: mpsc::channel(options.control_channels_size),
-			destroy_subscriber: mpsc::unbounded_channel(),
+			control_sender,
+			control_receiver,
 
 			next_subscriber_id: 0,
 			subscribers: HashMap::new(),
@@ -78,40 +73,59 @@ impl<T: Topic, M: Message> Publisher<T, M> {
 	///
 	/// This handle can be used to manage subscribers,
 	/// cloning it just returns a handle to the same [`Publisher`].
-	pub fn handle(&self) -> PublisherHandle<T, M> {
-		PublisherHandle::new(self)
+	pub fn handle(&self) -> PublisherHandle<T, M, C> {
+		PublisherHandle::new(self.control_sender.clone())
 	}
-	/// Handles the next control step
+	/// Drives the publisher one step, handling operations like creating/removing subscribers, etc
 	///
-	/// This must be called in a loop to keep the [`Publisher`] functioning,
+	/// **This must be called in a loop** to keep the [`Publisher`] functioning,
 	/// it handles creating/destroying subscribers, handling new subscriptions
 	/// to topics.
 	///
-	/// You can add your own topic setup/removal logic using [`TopicControl`]
-	pub async fn control_step<E, F1, F2>(
-		&mut self,
-		topic_control: TopicControl<T, E, F1, F2>,
-	) -> Result<(), E>
+	/// You can add your own topic setup/removal logic and send topic context using [`TopicControl`]
+	pub async fn drive<E, F1, F2>(&mut self, topic_control: TopicControl<F1, F2>) -> Result<(), E>
 	where
-		F1: AsyncFnMut(&T) -> Result<(), E>,
+		F1: AsyncFnMut(&T) -> Result<C, E>,
 		F2: AsyncFnMut(&T) -> Result<(), E>,
 	{
-		select! {
-			// impossible to get None, since there will be always at
-			// least one sender in the Publisher struct itself
-			Some(create) = self.create_subscriber.1.recv() => {
-				// ignore error, which would happen if the oneshot receiver is already dropped
-				// the newly created subscriber will be just dropped too, and clean up automatically
-				let _ = create.response.send(self.new_subscriber());
+		// impossible to get None, since there will be always at
+		// least one sender in the Publisher struct itself
+		let control_msg = self.control_receiver.recv().await.unwrap();
+		match control_msg {
+			ControlMessage::CreateSubscriber { response } => {
+				if let Err(subscriber) = response.send(self.new_subscriber()) {
+					subscriber.destroy().await;
+				}
 			}
-			Some(destroy) = self.destroy_subscriber.1.recv() => {
-				self.destroy_subscriber(topic_control.on_topic_destroy, destroy.id).await?;
+			ControlMessage::DestroySubscriber { id } => {
+				self.destroy_subscriber(topic_control.on_topic_unsubscribe, id)
+					.await?;
 			}
-			Some(subscribe) = self.subscribe.1.recv() => {
-				self.subscribe(topic_control.on_topic_create, subscribe.subscriber_id, subscribe.topic).await?;
+			ControlMessage::AddTopic {
+				id,
+				topic,
+				response,
+			} => {
+				let r = self
+					.add_topic(topic_control.on_topic_subscribe, id, topic)
+					.await?;
+
+				// if the oneshot receiver already dropped, the whole subscriber must
+				// be dropped, and it will be cleaned up automatically, so ignore errors
+				let _ = response.send(r);
 			}
-			Some(unsubscribe) = self.unsubscribe.1.recv() => {
-				self.unsubscribe(topic_control.on_topic_destroy, unsubscribe.subscriber_id, unsubscribe.topic).await?;
+			ControlMessage::RemoveTopic {
+				id,
+				topic,
+				response,
+			} => {
+				let r = self
+					.remove_topic(topic_control.on_topic_unsubscribe, id, topic)
+					.await?;
+
+				// if the oneshot receiver already dropped, the whole subscriber must
+				// be dropped, and it will be cleaned up automatically, so ignore errors
+				let _ = response.send(r);
 			}
 		}
 
@@ -144,22 +158,33 @@ impl<T: Topic, M: Message> Publisher<T, M> {
 
 		Ok(())
 	}
+	/// Creates a new [`Subscriber`] to this publisher.
+	///
+	/// Note that calling control methods on the [`Subscriber`] requires
+	/// driving this publisher.
+	pub fn new_subscriber(&mut self) -> Subscriber<T, M, C> {
+		let (sender, receiver) = mpsc::channel(self.options.subscriber_channel_size);
+
+		let id = self.next_subscriber_id();
+		self.subscribers.insert(
+			id,
+			SubscriberData {
+				mpsc_sender: sender,
+				funnel_tasks: HashMap::new(),
+			},
+		);
+
+		Subscriber::new(id, self.control_sender.clone(), receiver)
+	}
 }
 
-impl<T: Topic, M: Message> Publisher<T, M> {
-	pub(crate) fn next_subscriber_id(&mut self) -> u64 {
+impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
+	fn next_subscriber_id(&mut self) -> u64 {
 		let id = self.next_subscriber_id;
 		self.next_subscriber_id += 1;
 		id
 	}
-	pub(crate) fn new_subscriber(&mut self) -> Subscriber<T, M> {
-		Subscriber::new(self)
-	}
-	pub(crate) async fn destroy_subscriber<F, E>(
-		&mut self,
-		mut on_topic_destroy: F,
-		id: u64,
-	) -> Result<(), E>
+	async fn destroy_subscriber<F, E>(&mut self, mut on_topic_destroy: F, id: u64) -> Result<(), E>
 	where
 		F: AsyncFnMut(&T) -> Result<(), E>,
 	{
@@ -179,14 +204,14 @@ impl<T: Topic, M: Message> Publisher<T, M> {
 
 		Ok(())
 	}
-	pub(crate) async fn subscribe<F, E>(
+	async fn add_topic<F, E>(
 		&mut self,
 		mut on_topic_create: F,
 		id: u64,
 		topic: T,
-	) -> Result<(), E>
+	) -> Result<Result<C, TopicAlreadyAdded>, E>
 	where
-		F: AsyncFnMut(&T) -> Result<(), E>,
+		F: AsyncFnMut(&T) -> Result<C, E>,
 	{
 		// This should never fail, because the only way to call this function is through a living
 		// Subscriber instance, and the only way to obtain a Subscriber
@@ -197,14 +222,14 @@ impl<T: Topic, M: Message> Publisher<T, M> {
 			.get_mut(&id)
 			.expect("subscribe with non-existing subscriber");
 
-		// do nothing if already subscribed
+		// if already subscribed
 		if subscriber.funnel_tasks.contains_key(&topic) {
-			return Ok(());
+			return Ok(Err(TopicAlreadyAdded));
 		}
 
-		let topic_sender_entry = self.topics.entry(topic.clone());
-		let is_new_topic = matches!(topic_sender_entry, Entry::Vacant(_));
-		let topic_sender = topic_sender_entry
+		let topic_sender = self
+			.topics
+			.entry(topic.clone())
 			.or_insert_with(|| broadcast::Sender::new(self.options.topic_broadcast_channel_size));
 
 		let mpsc_sender = subscriber.mpsc_sender.clone();
@@ -215,18 +240,14 @@ impl<T: Topic, M: Message> Publisher<T, M> {
 
 		subscriber.funnel_tasks.insert(topic.clone(), handle);
 
-		if is_new_topic {
-			on_topic_create(&topic).await?;
-		}
-
-		Ok(())
+		Ok(Ok(on_topic_create(&topic).await?))
 	}
-	pub(crate) async fn unsubscribe<F, E>(
+	async fn remove_topic<F, E>(
 		&mut self,
 		mut on_topic_destroy: F,
 		id: u64,
 		topic: T,
-	) -> Result<(), E>
+	) -> Result<Result<(), TopicNotSubscribed>, E>
 	where
 		F: AsyncFnMut(&T) -> Result<(), E>,
 	{
@@ -241,15 +262,15 @@ impl<T: Topic, M: Message> Publisher<T, M> {
 
 		let abort_handle = match subscriber.funnel_tasks.get(&topic) {
 			Some(x) => x,
-			// if not subscribed to the topic, just do nothing
-			None => return Ok(()),
+			// if not subscribed to the topic
+			None => return Ok(Err(TopicNotSubscribed)),
 		};
 
 		abort_handle.abort();
 		self.cleanup_topic_if_empty(&topic, &mut on_topic_destroy)
 			.await?;
 
-		Ok(())
+		Ok(Ok(()))
 	}
 	/// If a given topic has no more subscribers, removes it completely
 	async fn cleanup_topic_if_empty<F, E>(&mut self, topic: &T, f: &mut F) -> Result<(), E>
@@ -271,44 +292,11 @@ impl<T: Topic, M: Message> Publisher<T, M> {
 	}
 }
 
-struct Nothing<E>(PhantomData<*mut E>);
-impl<E> Future for Nothing<E> {
-	type Output = Result<(), E>;
-
-	fn poll(
-		self: std::pin::Pin<&mut Self>,
-		_cx: &mut std::task::Context<'_>,
-	) -> Poll<Self::Output> {
-		Poll::Ready(Ok(()))
-	}
-}
-fn do_nothing<T, E>(_: &T) -> Nothing<E> {
-	Nothing(PhantomData)
-}
-
-/// Closures to be run on the events of new topics being subscribed to or
-/// when the last subscriber of a topic unsubscribes
-#[allow(private_interfaces)]
-pub struct TopicControl<T, E, F1 = fn(&T) -> Nothing<E>, F2 = fn(&T) -> Nothing<E>>
-where
-	T: Topic,
-	F1: AsyncFnMut(&T) -> Result<(), E>,
-	F2: AsyncFnMut(&T) -> Result<(), E>,
-{
-	/// Runs when a new topic is first subscribed to
-	pub on_topic_create: F1,
-	/// Runs when the last subscriber unsubscribes from a topic
-	pub on_topic_destroy: F2,
-
-	pub phantom: PhantomData<*mut (T, E)>,
-}
-
-impl<T: Topic, E> Default for TopicControl<T, E> {
-	fn default() -> Self {
-		Self {
-			on_topic_create: do_nothing,
-			on_topic_destroy: do_nothing,
-			phantom: PhantomData,
-		}
-	}
+/// Closures to be run on the events of topics being subscribed to
+/// or unsubscribed from
+pub struct TopicControl<F1, F2> {
+	/// Runs when a topic is subscribed to
+	pub on_topic_subscribe: F1,
+	/// Runs when a topic is unsubscribed from
+	pub on_topic_unsubscribe: F2,
 }

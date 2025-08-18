@@ -14,7 +14,7 @@ pub use options::Options;
 pub use publisher::{Publisher, TopicControl};
 pub use publisher_handle::PublisherHandle;
 pub use subscriber::Subscriber;
-pub use traits::{Message, Topic};
+pub use traits::{Message, Topic, TopicContext};
 
 type BroadcastMessage<M> = Arc<M>;
 type MpscMessage<T, M> = (T, PubSubMessage<M>);

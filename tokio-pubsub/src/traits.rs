@@ -13,3 +13,9 @@ impl<T> Topic for T where T: Hash + Eq + Clone + Send + Sync + 'static {}
 /// The message will be put into an [`Arc`][std::sync::Arc] before sending
 pub trait Message: Send + Sync + 'static {}
 impl<T> Message for T where T: Send + Sync + 'static {}
+
+/// Types that can be used as topic context
+///
+/// Topic context is returned to a subscriber when it subscribes to a new topic
+pub trait TopicContext: Send + Sync + 'static {}
+impl<T> TopicContext for T where T: Send + Sync + 'static {}

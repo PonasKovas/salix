@@ -1,20 +1,25 @@
 use super::subscriber::Subscriber;
+use crate::{
+	Message, Topic, TopicContext,
+	error::{TopicAlreadyAdded, TopicNotSubscribed},
+};
 use tokio::sync::oneshot;
 
-pub(crate) struct CreateSubscriber<T, M> {
-	pub response: oneshot::Sender<Subscriber<T, M>>,
-}
-
-pub(crate) struct DestroySubscriber {
-	pub id: u64,
-}
-
-pub(crate) struct SubscribeTopic<T> {
-	pub subscriber_id: u64,
-	pub topic: T,
-}
-
-pub(crate) struct UnsubscribeTopic<T> {
-	pub subscriber_id: u64,
-	pub topic: T,
+pub(crate) enum ControlMessage<T: Topic, M: Message, C: TopicContext> {
+	CreateSubscriber {
+		response: oneshot::Sender<Subscriber<T, M, C>>,
+	},
+	DestroySubscriber {
+		id: u64,
+	},
+	AddTopic {
+		id: u64,
+		topic: T,
+		response: oneshot::Sender<Result<C, TopicAlreadyAdded>>,
+	},
+	RemoveTopic {
+		id: u64,
+		topic: T,
+		response: oneshot::Sender<Result<(), TopicNotSubscribed>>,
+	},
 }

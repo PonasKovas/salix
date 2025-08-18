@@ -1,29 +1,41 @@
-use super::{
-	MpscMessage,
-	control::{DestroySubscriber, SubscribeTopic, UnsubscribeTopic},
+use super::MpscMessage;
+use crate::{
+	Message, Topic, TopicContext,
+	control::ControlMessage,
+	error::{AddTopicError, PublisherDropped, RemoveTopicError},
 };
-use crate::{Message, Publisher, Topic, error::PublisherDropped, publisher::SubscriberData};
-use ahash::{HashMap, HashMapExt};
-use tokio::sync::mpsc;
+use std::mem::forget;
+use tokio::sync::{mpsc, oneshot};
 
 /// A subscriber to a [`Publisher`] instance
 ///
 /// Use this to receive new messages on the topics its subscribed on.
-pub struct Subscriber<T, M> {
+///
+/// To be able to use the control methods (adding/removing topics, destroying the subscriber),
+/// the main [`Publisher`] instance must be driven ([`Publisher::drive`]),
+/// Otherwise these calls will hang indefinitely.
+pub struct Subscriber<T: Topic, M: Message, C: TopicContext> {
 	id: u64,
 	receiver: mpsc::Receiver<MpscMessage<T, M>>,
 
-	subscribe: mpsc::Sender<SubscribeTopic<T>>,
-	unsubscribe: mpsc::Sender<UnsubscribeTopic<T>>,
-	destroy: mpsc::UnboundedSender<DestroySubscriber>,
+	// Option only to allow to move it out in the Drop impl
+	control: Option<mpsc::Sender<ControlMessage<T, M, C>>>,
 }
 
-impl<T, M> Subscriber<T, M> {
+impl<T: Topic, M: Message, C: TopicContext> Subscriber<T, M, C> {
 	/// Destroys the subscriber
 	///
 	/// Dropping the [`Subscriber`] has the same effect.
-	pub fn destroy(self) {
-		// activates Drop impl
+	pub async fn destroy(self) {
+		// it will error if Publisher is dropped, in which case there is nothing
+		// to clean up anymore anyway so its fine
+		let _ = self
+			.control()
+			.send(ControlMessage::DestroySubscriber { id: self.id })
+			.await;
+
+		// avoid running the drop impl which would do the same but spawn a task for it
+		forget(self);
 	}
 	/// Receives a new message from the [`Publisher`] on the subscribed topics
 	///
@@ -32,9 +44,9 @@ impl<T, M> Subscriber<T, M> {
 		// this recv() call can return None if all senders are dropped
 		// the Publisher has one, as long as the SubscriberData is existing in it's memory.
 		// So this can return None if:
-		// √ Publisher is dropped as a whole
 		// X my SubscriberData is removed from the Publisher, but the only way to do that
 		//   is to first drop this Subscriber
+		// √ Publisher is dropped as a whole
 		self.receiver.recv().await.ok_or(PublisherDropped)
 	}
 	/// Subscribes to a topic `T`.
@@ -43,54 +55,64 @@ impl<T, M> Subscriber<T, M> {
 	/// subscriber will start receiving them.
 	///
 	/// This can be reversed by [`Subscriber::remove_topic`].
-	pub async fn add_topic(&mut self, topic: T) -> Result<(), PublisherDropped> {
-		self.subscribe
-			.send(SubscribeTopic {
-				subscriber_id: self.id,
+	pub async fn add_topic(&mut self, topic: T) -> Result<C, AddTopicError> {
+		let (response_sender, response_receiver) = oneshot::channel();
+
+		self.control()
+			.send(ControlMessage::AddTopic {
+				id: self.id,
 				topic,
+				response: response_sender,
 			})
 			.await
-			.map_err(|_| PublisherDropped)
+			.map_err(|_| PublisherDropped)?;
+
+		Ok(response_receiver.await.map_err(|_| PublisherDropped)??)
 	}
-	/// Unsubscribes from a topic `T`.
-	pub async fn remove_topic(&mut self, topic: T) -> Result<(), PublisherDropped> {
-		self.unsubscribe
-			.send(UnsubscribeTopic {
-				subscriber_id: self.id,
+	/// Unsubscribes from a topic `T`. Nothing will happen if the topic was not subscribed
+	pub async fn remove_topic(&mut self, topic: T) -> Result<(), RemoveTopicError> {
+		let (response_sender, response_receiver) = oneshot::channel();
+
+		self.control()
+			.send(ControlMessage::RemoveTopic {
+				id: self.id,
 				topic,
+				response: response_sender,
 			})
 			.await
-			.map_err(|_| PublisherDropped)
+			.map_err(|_| PublisherDropped)?;
+
+		Ok(response_receiver.await.map_err(|_| PublisherDropped)??)
 	}
 }
 
-impl<T: Topic, M: Message> Subscriber<T, M> {
-	pub(crate) fn new(publisher: &mut Publisher<T, M>) -> Self {
-		let (sender, receiver) = mpsc::channel(publisher.options.subscriber_channel_size);
-
-		let id = publisher.next_subscriber_id();
-		publisher.subscribers.insert(
-			id,
-			SubscriberData {
-				mpsc_sender: sender,
-				funnel_tasks: HashMap::new(),
-			},
-		);
-
+impl<T: Topic, M: Message, C: TopicContext> Subscriber<T, M, C> {
+	pub(crate) fn new(
+		id: u64,
+		control: mpsc::Sender<ControlMessage<T, M, C>>,
+		receiver: mpsc::Receiver<MpscMessage<T, M>>,
+	) -> Self {
 		Subscriber {
 			id,
 			receiver,
-			subscribe: publisher.subscribe.0.clone(),
-			unsubscribe: publisher.unsubscribe.0.clone(),
-			destroy: publisher.destroy_subscriber.0.clone(),
+			control: Some(control),
 		}
+	}
+	fn control(&self) -> &mpsc::Sender<ControlMessage<T, M, C>> {
+		self.control.as_ref().unwrap()
 	}
 }
 
-impl<T, M> Drop for Subscriber<T, M> {
+/// Prefer using the [`Subscriber::destroy`] method instead of dropping, because dropping will spawn a task
+impl<T: Topic, M: Message, C: TopicContext> Drop for Subscriber<T, M, C> {
 	fn drop(&mut self) {
-		// only way this could fail is if the Publisher is dropped,
-		// in which case there is nothing to cleanup anymore anyway
-		let _ = self.destroy.send(DestroySubscriber { id: self.id });
+		let control = self.control.take().unwrap();
+		let id = self.id;
+
+		tokio::runtime::Handle::current().spawn(async move {
+			// only way this could fail is if the Publisher is dropped,
+			// in which case there is nothing to cleanup anymore anyway
+			let _ = control.send(ControlMessage::DestroySubscriber { id }).await;
+		});
 	}
 }
