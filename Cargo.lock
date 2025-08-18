@@ -2105,6 +2105,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-pubsub"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "tokio-stream"
 version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"

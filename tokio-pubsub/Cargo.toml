@@ -1,0 +1,9 @@
+[package]
+name = "tokio-pubsub"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
+ahash.workspace = true
+thiserror.workspace = true

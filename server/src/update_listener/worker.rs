@@ -1,3 +1,4 @@
+use super::pubsub::Publisher;
 use crate::db::{Database, message::Message};
 use ahash::{HashMap, HashMapExt};
 use sqlx::postgres::PgListener;
@@ -10,7 +11,7 @@ use uuid::Uuid;
 
 pub struct ListenerWorker {
 	db: PgListener,
-	chat_messages: HashMap<Uuid, ChatListener>,
+	chat_messages: Publisher<Uuid, Message>,
 }
 
 struct ChatListener {
