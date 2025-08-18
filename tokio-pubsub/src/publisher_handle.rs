@@ -4,12 +4,12 @@ use crate::{
 };
 use tokio::sync::{mpsc, oneshot};
 
-/// A handle to a [`Publisher`] instance.
+/// A handle to a [`Publisher`][crate::Publisher] instance.
 ///
-/// To be able to use it, the main [`Publisher`] instance must be driven ([`Publisher::drive`]),
+/// To be able to use it, the main [`Publisher`][crate::Publisher] instance must be driven ([`Publisher::drive`][crate::Publisher::drive]),
 /// Otherwise all calls will hang indefinitely
 ///
-/// Cloning this will just give another handle to the same [`Publisher`].
+/// Cloning this will just give another handle to the same [`Publisher`][crate::Publisher].
 pub struct PublisherHandle<T: Topic, M: Message, C: TopicContext> {
 	control: mpsc::Sender<ControlMessage<T, M, C>>,
 }
@@ -18,7 +18,7 @@ impl<T: Topic, M: Message, C: TopicContext> PublisherHandle<T, M, C> {
 	pub(crate) fn new(control: mpsc::Sender<ControlMessage<T, M, C>>) -> Self {
 		Self { control }
 	}
-	/// Creates a new [`Subscriber`] to the [`Publisher`].
+	/// Creates a new [`Subscriber`] to the [`Publisher`][crate::Publisher].
 	pub async fn subscribe(&self) -> Result<Subscriber<T, M, C>, PublisherDropped> {
 		let (sender, receiver) = oneshot::channel();
 

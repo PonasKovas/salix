@@ -135,7 +135,7 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 	///
 	/// This will error if the topic doesn't exist (there are no subscribers to it).
 	/// Generally you should keep track of what topics are subscribed to using [`TopicControl`] in
-	/// [`Publisher::control_step`].
+	/// [`Publisher::drive`].
 	pub fn publish(&mut self, topic: &T, message: M) -> Result<(), TopicDoesntExist> {
 		let topic_broadcast = match self.topics.get(topic) {
 			Some(x) => x,

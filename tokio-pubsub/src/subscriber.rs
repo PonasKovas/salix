@@ -7,12 +7,12 @@ use crate::{
 use std::mem::forget;
 use tokio::sync::{mpsc, oneshot};
 
-/// A subscriber to a [`Publisher`] instance
+/// A subscriber to a [`Publisher`][crate::Publisher] instance
 ///
 /// Use this to receive new messages on the topics its subscribed on.
 ///
 /// To be able to use the control methods (adding/removing topics, destroying the subscriber),
-/// the main [`Publisher`] instance must be driven ([`Publisher::drive`]),
+/// the main [`Publisher`][crate::Publisher] instance must be driven ([`Publisher::drive`][crate::Publisher::drive]),
 /// Otherwise these calls will hang indefinitely.
 pub struct Subscriber<T: Topic, M: Message, C: TopicContext> {
 	id: u64,
@@ -37,9 +37,9 @@ impl<T: Topic, M: Message, C: TopicContext> Subscriber<T, M, C> {
 		// avoid running the drop impl which would do the same but spawn a task for it
 		forget(self);
 	}
-	/// Receives a new message from the [`Publisher`] on the subscribed topics
+	/// Receives a new message from the [`Publisher`][crate::Publisher] on the subscribed topics
 	///
-	/// Fails if the [`Publisher`] was dropped.
+	/// Fails if the [`Publisher`][crate::Publisher] was dropped.
 	pub async fn recv(&mut self) -> Result<MpscMessage<T, M>, PublisherDropped> {
 		// this recv() call can return None if all senders are dropped
 		// the Publisher has one, as long as the SubscriberData is existing in it's memory.
