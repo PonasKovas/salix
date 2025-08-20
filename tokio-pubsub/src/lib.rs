@@ -44,15 +44,16 @@ mod subscriber;
 mod traits;
 
 pub use options::Options;
-pub use publisher::{Publisher, TopicControl};
+pub use publisher::{Publisher, PublisherDriver};
 pub use publisher_handle::PublisherHandle;
 pub use subscriber::Subscriber;
-pub use traits::{Message, Topic, TopicContext};
+pub use traits::{Message, Topic, TopicContext, TopicError};
 
 type BroadcastMessage<M> = Arc<M>;
 type MpscMessage<T, M> = (T, PubSubMessage<M>);
 
 /// Information when receiving a message
+#[derive(Debug)]
 pub enum PubSubMessage<M> {
 	/// A new message on the topic
 	Ok(Arc<M>),

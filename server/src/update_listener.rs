@@ -7,56 +7,48 @@ use tokio::{
 	spawn,
 	sync::{mpsc, oneshot},
 };
-use tokio_pubsub::{PublisherHandle, TopicContext};
+use tokio_pubsub::{Publisher, PublisherHandle};
 use tracing::error;
 use uuid::Uuid;
-use worker::{ControlMessage, ListenerWorker};
 
-mod worker;
+mod messages;
 
 #[derive(Clone, Debug)]
 pub struct UpdateListener {
 	messages: PublisherHandle<Uuid, Message, i64>,
 }
 
-impl TopicContext for i64 {
-	fn is_failure(&self) -> bool {
-		false
-	}
-}
-
 impl UpdateListener {
 	pub async fn init(_config: &Config, _args: &Args, db: &Database) -> sqlx::Result<Self> {
-		let (control_sender, control_receiver) = mpsc::channel(16);
+		let publisher = Publisher::new();
+		let handle = publisher.handle();
 
-		let worker = ListenerWorker::new(db).await?;
+		let worker = ListenerWorker::new(db, publisher).await?;
 		spawn(async move {
-			if let Err(e) = worker.start(control_receiver).await {
+			if let Err(e) = worker.run().await {
 				error!("{e}");
 			}
 		});
 
-		Ok(Self {
-			control: control_sender,
-		})
+		Ok(Self { messages: handle })
 	}
-	/// returns the last message that was in the chat sequence id
-	pub async fn subscribe(&self) -> (i64, MessagesSubscriber) {
-		let (oneshot_sender, oneshot_receiver) = oneshot::channel();
-		self.control
-			.send(ControlMessage::SubscribeToChat {
-				respond: oneshot_sender,
-			})
-			.await
-			.unwrap();
+	// /// returns the last message that was in the chat sequence id
+	// pub async fn subscribe(&self) -> (i64, MessagesSubscriber) {
+	// 	let (oneshot_sender, oneshot_receiver) = oneshot::channel();
+	// 	self.control
+	// 		.send(ControlMessage::SubscribeToChat {
+	// 			respond: oneshot_sender,
+	// 		})
+	// 		.await
+	// 		.unwrap();
 
-		let response = oneshot_receiver.await.unwrap();
+	// 	let response = oneshot_receiver.await.unwrap();
 
-		(
-			response.last_message_seq_id,
-			MessagesSubscriber {
-				receiver: response.updates,
-			},
-		)
-	}
+	// 	(
+	// 		response.last_message_seq_id,
+	// 		MessagesSubscriber {
+	// 			receiver: response.updates,
+	// 		},
+	// 	)
+	// }
 }

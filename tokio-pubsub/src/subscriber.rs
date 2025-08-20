@@ -1,11 +1,11 @@
 use super::MpscMessage;
 use crate::{
 	Message, Topic, TopicContext,
-	control::ControlMessage,
+	control::{AddTopic, ControlMessage, DestroySubscriber, RemoveTopic},
 	error::{AddTopicError, PublisherDropped, RemoveTopicError},
 	traits::TopicError,
 };
-use std::{convert::Infallible, mem::forget};
+use std::{convert::Infallible, fmt::Debug, mem::forget};
 use tokio::sync::{mpsc, oneshot};
 
 /// A subscriber to a [`Publisher`][crate::Publisher] instance
@@ -15,6 +15,7 @@ use tokio::sync::{mpsc, oneshot};
 /// To be able to use the control methods (adding/removing topics, destroying the subscriber),
 /// the main [`Publisher`][crate::Publisher] instance must be driven ([`Publisher::drive`][crate::Publisher::drive]),
 /// Otherwise these calls will hang indefinitely.
+#[must_use]
 pub struct Subscriber<T: Topic, M: Message, C: TopicContext, E: TopicError = Infallible> {
 	id: u64,
 	receiver: mpsc::Receiver<MpscMessage<T, M>>,
@@ -32,7 +33,9 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Subscriber<T, M, C, E
 		// to clean up anymore anyway so its fine
 		let _ = self
 			.control()
-			.send(ControlMessage::DestroySubscriber { id: self.id })
+			.send(ControlMessage::DestroySubscriber(DestroySubscriber {
+				id: self.id,
+			}))
 			.await;
 
 		// avoid running the drop impl which would do the same but spawn a task for it
@@ -60,11 +63,11 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Subscriber<T, M, C, E
 		let (response_sender, response_receiver) = oneshot::channel();
 
 		self.control()
-			.send(ControlMessage::AddTopic {
+			.send(ControlMessage::AddTopic(AddTopic {
 				id: self.id,
 				topic,
 				response: response_sender,
-			})
+			}))
 			.await
 			.map_err(|_| PublisherDropped)?;
 
@@ -78,11 +81,11 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Subscriber<T, M, C, E
 		let (response_sender, response_receiver) = oneshot::channel();
 
 		self.control()
-			.send(ControlMessage::RemoveTopic {
+			.send(ControlMessage::RemoveTopic(RemoveTopic {
 				id: self.id,
 				topic,
 				response: response_sender,
-			})
+			}))
 			.await
 			.map_err(|_| PublisherDropped)?;
 
@@ -116,7 +119,19 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Drop for Subscriber<T
 		tokio::runtime::Handle::current().spawn(async move {
 			// only way this could fail is if the Publisher is dropped,
 			// in which case there is nothing to cleanup anymore anyway
-			let _ = control.send(ControlMessage::DestroySubscriber { id }).await;
+			let _ = control
+				.send(ControlMessage::DestroySubscriber(DestroySubscriber { id }))
+				.await;
 		});
+	}
+}
+
+impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Debug for Subscriber<T, M, C, E> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Subscriber")
+			.field("id", &self.id)
+			.field("receiver", &self.receiver)
+			.field("control", &self.control)
+			.finish()
 	}
 }

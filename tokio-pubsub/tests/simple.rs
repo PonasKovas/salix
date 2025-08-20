@@ -3,7 +3,7 @@ use tokio::{
 	select,
 	sync::mpsc::{Sender, channel, error::SendError},
 };
-use tokio_pubsub::{PubSubMessage, Publisher, PublisherHandle, TopicControl};
+use tokio_pubsub::{PubSubMessage, Publisher, PublisherHandle};
 
 const MESSAGES: &[&str] = &["hello", "second message", "third message!!!"];
 
@@ -23,19 +23,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
 					publisher.publish(topic, update.unwrap())?;
 				}
 			}
-			r = publisher
-				.drive::<(), _, _>(TopicControl {
-					on_topic_subscribe: async |topic: &u32| {
-						println!("someone subscribed to topic {topic}");
-						current_topic = Some(*topic);
-						external_source(external_sender.clone());
+			driver = publisher.drive() => {
+				let r = driver.on_topic_subscribe(async |topic: &u32| {
+					println!("someone subscribed to topic {topic}");
+					current_topic = Some(*topic);
+					external_source(external_sender.clone());
 
-						Ok(Ok(()))
-					},
-					on_topic_unsubscribe: async |_topic: &u32| Err(()),
-				}) => {
-					if r.is_err() { break }
-				},
+					Ok(Ok(()))
+				}).await
+				.on_topic_unsubscribe(async |_topic: &u32| Err("bye")).await
+				.finish().await;
+
+				if r.is_err() {
+					break;
+				}
+			},
 		}
 	}
 

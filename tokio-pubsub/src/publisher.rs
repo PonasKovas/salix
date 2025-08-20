@@ -9,12 +9,16 @@ use crate::{
 	traits::TopicError,
 };
 use ahash::{HashMap, HashMapExt};
-use std::{convert::Infallible, sync::Arc};
+use std::{convert::Infallible, fmt::Debug, sync::Arc};
 use tokio::{
 	spawn,
 	sync::{broadcast, mpsc},
 	task::AbortHandle,
 };
+
+mod drive;
+
+pub use drive::PublisherDriver;
 
 /// The main structure.
 ///
@@ -32,8 +36,11 @@ use tokio::{
 ///
 /// # `C` parameter
 ///
-/// `C` is the topic context type, returned to a subscriber when it subscribes to a topic
-/// and may indicate failure by using something like `Result<T, Err>`.
+/// `C` is the topic context type, returned to a subscriber when it subscribes to a topic.
+///
+/// # `E` parameter
+///
+/// `E` is the topic error type, returned to a subscriber when it tries to subscribes to a fallible topic and it fails.
 pub struct Publisher<T: Topic, M: Message, C: TopicContext, E: TopicError = Infallible> {
 	options: Options,
 
@@ -82,58 +89,12 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 	/// **This must be called in a loop** to keep the [`Publisher`] functioning,
 	/// it handles creating/destroying subscribers, handling new subscriptions
 	/// to topics.
-	///
-	/// You can add your own topic setup/removal logic and send topic context using [`TopicControl`]
-	pub async fn drive<ERR, F1, F2>(
-		&mut self,
-		topic_control: TopicControl<F1, F2>,
-	) -> Result<(), ERR>
-	where
-		F1: AsyncFnMut(&T) -> Result<Result<C, E>, ERR>,
-		F2: AsyncFnMut(&T) -> Result<(), ERR>,
-	{
+	pub async fn drive<'a, ERR>(&'a mut self) -> PublisherDriver<'a, T, M, C, E, ERR> {
 		// impossible to get None, since there will be always at
 		// least one sender in the Publisher struct itself
 		let control_msg = self.control_receiver.recv().await.unwrap();
-		match control_msg {
-			ControlMessage::CreateSubscriber { response } => {
-				if let Err(subscriber) = response.send(self.new_subscriber()) {
-					subscriber.destroy().await;
-				}
-			}
-			ControlMessage::DestroySubscriber { id } => {
-				self.destroy_subscriber(topic_control.on_topic_unsubscribe, id)
-					.await?;
-			}
-			ControlMessage::AddTopic {
-				id,
-				topic,
-				response,
-			} => {
-				let r = self
-					.add_topic(topic_control.on_topic_subscribe, id, topic)
-					.await?;
 
-				// if the oneshot receiver already dropped, the whole subscriber must
-				// be dropped, and it will be cleaned up automatically, so ignore errors
-				let _ = response.send(r);
-			}
-			ControlMessage::RemoveTopic {
-				id,
-				topic,
-				response,
-			} => {
-				let r = self
-					.remove_topic(topic_control.on_topic_unsubscribe, id, topic)
-					.await?;
-
-				// if the oneshot receiver already dropped, the whole subscriber must
-				// be dropped, and it will be cleaned up automatically, so ignore errors
-				let _ = response.send(r);
-			}
-		}
-
-		Ok(())
+		PublisherDriver::new(self, control_msg)
 	}
 	/// Publishes a new message to a certain topic.
 	///
@@ -188,10 +149,10 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 		self.next_subscriber_id += 1;
 		id
 	}
-	async fn destroy_subscriber<F, ERR>(
+	async fn destroy_subscriber<ERR, F>(
 		&mut self,
-		mut on_topic_destroy: F,
 		id: u64,
+		mut on_topic_unsubscribe: F,
 	) -> Result<(), ERR>
 	where
 		F: AsyncFnMut(&T) -> Result<(), ERR>,
@@ -206,17 +167,17 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 
 		for (topic, abort_handle) in subscriber.funnel_tasks {
 			abort_handle.abort();
-			self.cleanup_topic_if_empty(&topic, &mut on_topic_destroy)
+			self.cleanup_topic_if_empty(&topic, &mut on_topic_unsubscribe)
 				.await?;
 		}
 
 		Ok(())
 	}
-	async fn add_topic<F, ERR>(
+	async fn add_topic<ERR, F>(
 		&mut self,
-		mut on_topic_create: F,
 		id: u64,
 		topic: T,
+		mut on_topic_subscribe: F,
 	) -> Result<Result<Result<C, E>, TopicAlreadyAdded>, ERR>
 	where
 		F: AsyncFnMut(&T) -> Result<Result<C, E>, ERR>,
@@ -235,7 +196,7 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 			return Ok(Err(TopicAlreadyAdded));
 		}
 
-		let context = on_topic_create(&topic).await?;
+		let context = on_topic_subscribe(&topic).await?;
 
 		// dont actually subscribe to the topic if failure
 		if context.is_err() {
@@ -257,11 +218,11 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 
 		Ok(Ok(context))
 	}
-	async fn remove_topic<F, ERR>(
+	async fn remove_topic<ERR, F>(
 		&mut self,
-		mut on_topic_destroy: F,
 		id: u64,
 		topic: T,
+		on_topic_unsubscribe: F,
 	) -> Result<Result<(), TopicNotSubscribed>, ERR>
 	where
 		F: AsyncFnMut(&T) -> Result<(), ERR>,
@@ -282,13 +243,17 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 		};
 
 		abort_handle.abort();
-		self.cleanup_topic_if_empty(&topic, &mut on_topic_destroy)
+		self.cleanup_topic_if_empty(&topic, on_topic_unsubscribe)
 			.await?;
 
 		Ok(Ok(()))
 	}
 	/// If a given topic has no more subscribers, removes it completely
-	async fn cleanup_topic_if_empty<F, ERR>(&mut self, topic: &T, f: &mut F) -> Result<(), ERR>
+	async fn cleanup_topic_if_empty<ERR, F>(
+		&mut self,
+		topic: &T,
+		mut on_topic_unsubscribe: F,
+	) -> Result<(), ERR>
 	where
 		F: AsyncFnMut(&T) -> Result<(), ERR>,
 	{
@@ -299,7 +264,7 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 		};
 
 		if topic_sender.receiver_count() == 0 {
-			f(topic).await?;
+			on_topic_unsubscribe(topic).await?;
 			self.topics.remove(topic);
 		}
 
@@ -307,11 +272,13 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 	}
 }
 
-/// Closures to be run on the events of topics being subscribed to
-/// or unsubscribed from
-pub struct TopicControl<F1, F2> {
-	/// Runs when a topic is subscribed to
-	pub on_topic_subscribe: F1,
-	/// Runs when a topic is unsubscribed from
-	pub on_topic_unsubscribe: F2,
+impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Debug for Publisher<T, M, C, E> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Publisher")
+			.field("options", &self.options)
+			.field("control_sender", &self.control_sender)
+			.field("control_receiver", &self.control_receiver)
+			.field("next_subscriber_id", &self.next_subscriber_id)
+			.finish()
+	}
 }

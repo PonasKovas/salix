@@ -1,9 +1,11 @@
-use std::convert::Infallible;
-
 use crate::{
-	Message, Topic, TopicContext, control::ControlMessage, error::PublisherDropped,
-	subscriber::Subscriber, traits::TopicError,
+	Message, Topic, TopicContext,
+	control::{ControlMessage, CreateSubscriber},
+	error::PublisherDropped,
+	subscriber::Subscriber,
+	traits::TopicError,
 };
+use std::{convert::Infallible, fmt::Debug};
 use tokio::sync::{mpsc, oneshot};
 
 /// A handle to a [`Publisher`][crate::Publisher] instance.
@@ -25,7 +27,9 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> PublisherHandle<T, M,
 		let (sender, receiver) = oneshot::channel();
 
 		self.control
-			.send(ControlMessage::CreateSubscriber { response: sender })
+			.send(ControlMessage::CreateSubscriber(CreateSubscriber {
+				response: sender,
+			}))
 			.await
 			.map_err(|_| PublisherDropped)?;
 
@@ -38,5 +42,12 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Clone for PublisherHa
 		Self {
 			control: self.control.clone(),
 		}
+	}
+}
+impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Debug for PublisherHandle<T, M, C, E> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("PublisherHandle")
+			.field("control", &self.control)
+			.finish()
 	}
 }
