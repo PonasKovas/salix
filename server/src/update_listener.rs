@@ -3,7 +3,6 @@ use crate::{
 	config::Config,
 	db::{Database, message::Message},
 };
-use pubsub::Subscriber;
 use tokio::{
 	spawn,
 	sync::{mpsc, oneshot},

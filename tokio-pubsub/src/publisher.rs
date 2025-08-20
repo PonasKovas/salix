@@ -227,6 +227,13 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 			return Ok(Err(TopicAlreadyAdded));
 		}
 
+		let context = on_topic_create(&topic).await?;
+
+		// dont actually subscribe to the topic if failure
+		if context.is_failure() {
+			return Ok(Ok(context));
+		}
+
 		let topic_sender = self
 			.topics
 			.entry(topic.clone())
@@ -240,7 +247,7 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 
 		subscriber.funnel_tasks.insert(topic.clone(), handle);
 
-		Ok(Ok(on_topic_create(&topic).await?))
+		Ok(Ok(context))
 	}
 	async fn remove_topic<F, E>(
 		&mut self,

@@ -17,5 +17,31 @@ impl<T> Message for T where T: Send + Sync + 'static {}
 /// Types that can be used as topic context
 ///
 /// Topic context is returned to a subscriber when it subscribes to a new topic
-pub trait TopicContext: Send + Sync + 'static {}
-impl<T> TopicContext for T where T: Send + Sync + 'static {}
+pub trait TopicContext: Send + Sync + 'static {
+	/// Returns `true` if the topic subscription failed and should not be added to the subscriber.
+	///
+	/// For an infallible topic, just return `false`.
+	fn is_failure(&self) -> bool;
+}
+impl<T, E> TopicContext for Result<T, E>
+where
+	T: Send + Sync + 'static,
+	E: Send + Sync + 'static,
+{
+	fn is_failure(&self) -> bool {
+		self.is_err()
+	}
+}
+impl<T> TopicContext for Option<T>
+where
+	T: Send + Sync + 'static,
+{
+	fn is_failure(&self) -> bool {
+		self.is_none()
+	}
+}
+impl TopicContext for () {
+	fn is_failure(&self) -> bool {
+		false
+	}
+}
