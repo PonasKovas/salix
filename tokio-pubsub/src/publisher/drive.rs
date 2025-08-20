@@ -154,7 +154,7 @@ impl<
 	) -> PublisherDriver<'a, T, M, C, E, ERR, true, ON_UNSUB>
 	where
 		F: AsyncFnMut(&T) -> Result<Result<C, E>, ERR>,
-		Self: IsInState<false, ON_UNSUB>,
+		Self: IsInState<ON_UNSUB, false>,
 	{
 		self.handle_add_topic(f).await;
 
@@ -179,7 +179,7 @@ impl<'a, T: Topic, M: Message, C: TopicContext, E: TopicError, ERR, const ON_UNS
 {
 	pub async fn finish(mut self) -> Result<(), ERR>
 	where
-		Self: IsInState<true, ON_UNSUB>,
+		Self: IsInState<ON_UNSUB, true>,
 	{
 		self.handle_create_subscriber().await;
 		self.handle_destroy_subscriber(async move |_: &T| Ok(()))
