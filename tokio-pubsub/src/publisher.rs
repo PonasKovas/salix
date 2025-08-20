@@ -99,8 +99,7 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 	/// Publishes a new message to a certain topic.
 	///
 	/// This will error if the topic doesn't exist (there are no subscribers to it).
-	/// Generally you should keep track of what topics are subscribed to using [`TopicControl`] in
-	/// [`Publisher::drive`].
+	/// Generally you should keep track of what topics are subscribed to manually
 	pub fn publish(&mut self, topic: &T, message: M) -> Result<(), TopicDoesntExist> {
 		let topic_broadcast = match self.topics.get(topic) {
 			Some(x) => x,

@@ -173,6 +173,10 @@ impl<
 
 		self.transition_state()
 	}
+}
+impl<'a, T: Topic, M: Message, C: TopicContext, E: TopicError, ERR, const ON_UNSUB: bool>
+	PublisherDriver<'a, T, M, C, E, ERR, true, ON_UNSUB>
+{
 	pub async fn finish(mut self) -> Result<(), ERR>
 	where
 		Self: IsInState<true, ON_UNSUB>,
@@ -180,6 +184,19 @@ impl<
 		self.handle_create_subscriber().await;
 		self.handle_destroy_subscriber(async move |_: &T| Ok(()))
 			.await;
+		self.handle_remove_topic(async move |_: &T| Ok(())).await;
+
+		return self.result;
+	}
+}
+impl<'a, T: Topic, M: Message, E: TopicError, ERR, const ON_UNSUB: bool>
+	PublisherDriver<'a, T, M, (), E, ERR, false, ON_UNSUB>
+{
+	pub async fn finish(mut self) -> Result<(), ERR> {
+		self.handle_create_subscriber().await;
+		self.handle_destroy_subscriber(async move |_: &T| Ok(()))
+			.await;
+		self.handle_add_topic(async move |_: &T| Ok(Ok(()))).await;
 		self.handle_remove_topic(async move |_: &T| Ok(())).await;
 
 		return self.result;
