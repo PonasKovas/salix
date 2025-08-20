@@ -11,10 +11,9 @@ const MESSAGES: &[&str] = &["hello", "second message", "third message!!!"];
 async fn main() -> Result<(), Box<dyn Error>> {
 	let mut publisher = Publisher::new();
 
-	// let mut external_source = external_source(Arc::clone(&activate_external));
-	let (external_sender, mut external_receiver) = channel(1);
-
 	tokio::spawn(receiver_task(publisher.handle()));
+
+	let (external_sender, mut external_receiver) = channel(1);
 
 	let mut current_topic = None;
 	loop {
@@ -31,7 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 						current_topic = Some(*topic);
 						external_source(external_sender.clone());
 
-						Ok(())
+						Ok(Ok(()))
 					},
 					on_topic_unsubscribe: async |_topic: &u32| Err(()),
 				}) => {

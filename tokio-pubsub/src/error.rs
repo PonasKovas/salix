@@ -22,11 +22,13 @@ pub struct TopicNotSubscribed;
 
 /// Errors that [`Subscriber::add_topic`][crate::Subscriber::add_topic] can return
 #[derive(Error, Debug)]
-pub enum AddTopicError {
+pub enum AddTopicError<E> {
 	#[error(transparent)]
 	AlreadyAdded(#[from] TopicAlreadyAdded),
 	#[error(transparent)]
 	PublisherDropped(#[from] PublisherDropped),
+	#[error(transparent)]
+	TopicError(E),
 }
 
 /// Errors that [`Subscriber::remove_topic`][crate::Subscriber::remove_topic] can return

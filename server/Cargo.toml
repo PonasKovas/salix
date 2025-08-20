@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 protocol = { path = "../protocol" }
+tokio-pubsub = { path = "../tokio-pubsub" }
 tokio = { workspace = true, features = ["full"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }

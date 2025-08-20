@@ -7,6 +7,7 @@ use tokio::{
 	spawn,
 	sync::{mpsc, oneshot},
 };
+use tokio_pubsub::{PublisherHandle, TopicContext};
 use tracing::error;
 use uuid::Uuid;
 use worker::{ControlMessage, ListenerWorker};
@@ -15,11 +16,13 @@ mod worker;
 
 #[derive(Clone, Debug)]
 pub struct UpdateListener {
-	control: mpsc::Sender<ControlMessage>,
+	messages: PublisherHandle<Uuid, Message, i64>,
 }
 
-pub struct UpdatesSubscriber {
-	chats: Subscriber<Uuid, Message>,
+impl TopicContext for i64 {
+	fn is_failure(&self) -> bool {
+		false
+	}
 }
 
 impl UpdateListener {

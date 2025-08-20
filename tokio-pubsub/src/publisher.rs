@@ -6,9 +6,10 @@ use crate::{
 	options::Options,
 	publisher_handle::PublisherHandle,
 	subscriber::Subscriber,
+	traits::TopicError,
 };
 use ahash::{HashMap, HashMapExt};
-use std::sync::Arc;
+use std::{convert::Infallible, sync::Arc};
 use tokio::{
 	spawn,
 	sync::{broadcast, mpsc},
@@ -33,11 +34,11 @@ use tokio::{
 ///
 /// `C` is the topic context type, returned to a subscriber when it subscribes to a topic
 /// and may indicate failure by using something like `Result<T, Err>`.
-pub struct Publisher<T: Topic, M: Message, C: TopicContext> {
+pub struct Publisher<T: Topic, M: Message, C: TopicContext, E: TopicError = Infallible> {
 	options: Options,
 
-	control_sender: mpsc::Sender<ControlMessage<T, M, C>>,
-	control_receiver: mpsc::Receiver<ControlMessage<T, M, C>>,
+	control_sender: mpsc::Sender<ControlMessage<T, M, C, E>>,
+	control_receiver: mpsc::Receiver<ControlMessage<T, M, C, E>>,
 
 	next_subscriber_id: u64,
 	subscribers: HashMap<u64, SubscriberData<T, M>>,
@@ -49,7 +50,7 @@ struct SubscriberData<T, M> {
 	funnel_tasks: HashMap<T, AbortHandle>,
 }
 
-impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
+impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E> {
 	/// Creates a new [`Publisher`] with the default options
 	pub fn new() -> Self {
 		Self::with_options(Default::default())
@@ -73,7 +74,7 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 	///
 	/// This handle can be used to manage subscribers,
 	/// cloning it just returns a handle to the same [`Publisher`].
-	pub fn handle(&self) -> PublisherHandle<T, M, C> {
+	pub fn handle(&self) -> PublisherHandle<T, M, C, E> {
 		PublisherHandle::new(self.control_sender.clone())
 	}
 	/// Drives the publisher one step, handling operations like creating/removing subscribers, etc
@@ -83,10 +84,13 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 	/// to topics.
 	///
 	/// You can add your own topic setup/removal logic and send topic context using [`TopicControl`]
-	pub async fn drive<E, F1, F2>(&mut self, topic_control: TopicControl<F1, F2>) -> Result<(), E>
+	pub async fn drive<ERR, F1, F2>(
+		&mut self,
+		topic_control: TopicControl<F1, F2>,
+	) -> Result<(), ERR>
 	where
-		F1: AsyncFnMut(&T) -> Result<C, E>,
-		F2: AsyncFnMut(&T) -> Result<(), E>,
+		F1: AsyncFnMut(&T) -> Result<Result<C, E>, ERR>,
+		F2: AsyncFnMut(&T) -> Result<(), ERR>,
 	{
 		// impossible to get None, since there will be always at
 		// least one sender in the Publisher struct itself
@@ -162,7 +166,7 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 	///
 	/// Note that calling control methods on the [`Subscriber`] requires
 	/// driving this publisher.
-	pub fn new_subscriber(&mut self) -> Subscriber<T, M, C> {
+	pub fn new_subscriber(&mut self) -> Subscriber<T, M, C, E> {
 		let (sender, receiver) = mpsc::channel(self.options.subscriber_channel_size);
 
 		let id = self.next_subscriber_id();
@@ -178,15 +182,19 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 	}
 }
 
-impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
+impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E> {
 	fn next_subscriber_id(&mut self) -> u64 {
 		let id = self.next_subscriber_id;
 		self.next_subscriber_id += 1;
 		id
 	}
-	async fn destroy_subscriber<F, E>(&mut self, mut on_topic_destroy: F, id: u64) -> Result<(), E>
+	async fn destroy_subscriber<F, ERR>(
+		&mut self,
+		mut on_topic_destroy: F,
+		id: u64,
+	) -> Result<(), ERR>
 	where
-		F: AsyncFnMut(&T) -> Result<(), E>,
+		F: AsyncFnMut(&T) -> Result<(), ERR>,
 	{
 		// This should never fail, because the only way to call to destroy a subscriber
 		// is by dropping the Subscriber instance, and the only way to obtain a Subscriber
@@ -204,14 +212,14 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 
 		Ok(())
 	}
-	async fn add_topic<F, E>(
+	async fn add_topic<F, ERR>(
 		&mut self,
 		mut on_topic_create: F,
 		id: u64,
 		topic: T,
-	) -> Result<Result<C, TopicAlreadyAdded>, E>
+	) -> Result<Result<Result<C, E>, TopicAlreadyAdded>, ERR>
 	where
-		F: AsyncFnMut(&T) -> Result<C, E>,
+		F: AsyncFnMut(&T) -> Result<Result<C, E>, ERR>,
 	{
 		// This should never fail, because the only way to call this function is through a living
 		// Subscriber instance, and the only way to obtain a Subscriber
@@ -230,7 +238,7 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 		let context = on_topic_create(&topic).await?;
 
 		// dont actually subscribe to the topic if failure
-		if context.is_failure() {
+		if context.is_err() {
 			return Ok(Ok(context));
 		}
 
@@ -249,14 +257,14 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 
 		Ok(Ok(context))
 	}
-	async fn remove_topic<F, E>(
+	async fn remove_topic<F, ERR>(
 		&mut self,
 		mut on_topic_destroy: F,
 		id: u64,
 		topic: T,
-	) -> Result<Result<(), TopicNotSubscribed>, E>
+	) -> Result<Result<(), TopicNotSubscribed>, ERR>
 	where
-		F: AsyncFnMut(&T) -> Result<(), E>,
+		F: AsyncFnMut(&T) -> Result<(), ERR>,
 	{
 		// This should never fail, because the only way to call this function is through a living
 		// Subscriber instance, and the only way to obtain a Subscriber
@@ -280,9 +288,9 @@ impl<T: Topic, M: Message, C: TopicContext> Publisher<T, M, C> {
 		Ok(Ok(()))
 	}
 	/// If a given topic has no more subscribers, removes it completely
-	async fn cleanup_topic_if_empty<F, E>(&mut self, topic: &T, f: &mut F) -> Result<(), E>
+	async fn cleanup_topic_if_empty<F, ERR>(&mut self, topic: &T, f: &mut F) -> Result<(), ERR>
 	where
-		F: AsyncFnMut(&T) -> Result<(), E>,
+		F: AsyncFnMut(&T) -> Result<(), ERR>,
 	{
 		let topic_sender = match self.topics.get(topic) {
 			Some(x) => x,
