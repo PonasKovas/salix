@@ -5,6 +5,8 @@ use tokio::{
 };
 use tokio_pubsub::{PubSubMessage, Publisher, PublisherHandle, TopicControl};
 
+const MESSAGES: &[&str] = &["hello", "second message", "third message!!!"];
+
 #[tokio::test]
 async fn main() -> Result<(), Box<dyn Error>> {
 	let mut publisher = Publisher::new();
@@ -47,21 +49,18 @@ async fn receiver_task(
 	let mut subscriber = publisher_handle.subscribe().await?;
 
 	subscriber.add_topic(123).await?;
-	loop {
+	for m in MESSAGES {
 		let (topic, msg) = subscriber.recv().await?;
 		let msg = match msg {
 			PubSubMessage::Ok(x) => x,
-			PubSubMessage::Lagged(n) => {
-				println!("missed {n} messages");
-				continue;
+			PubSubMessage::Lagged(_n) => {
+				panic!("this shouldnt lag with only 3 messages...");
 			}
 		};
 
-		println!("Received {msg} from {topic} topic");
+		assert_eq!(msg.as_str(), *m);
 
-		if msg.as_str() == "please end this test...." {
-			break;
-		}
+		println!("Received {msg} from {topic} topic");
 	}
 
 	Ok(())
@@ -69,10 +68,9 @@ async fn receiver_task(
 
 fn external_source(sender: Sender<String>) {
 	tokio::spawn(async move {
-		sender.send("hello".to_string()).await?;
-		sender.send("second message".to_string()).await?;
-		sender.send("third message!!!".to_string()).await?;
-		sender.send("please end this test....".to_string()).await?;
+		for m in MESSAGES {
+			sender.send(m.to_string()).await?;
+		}
 
 		Result::<_, SendError<String>>::Ok(())
 	});
