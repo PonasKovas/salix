@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO active_sessions (token, user_id, expires_at)\n\t\t\tVALUES ($1, $2, NOW() + ('1 hour'::interval * $3))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4b51701bf29f7138571757026623ee8174b7e708cca647232e915450ee5fcf90"
+}

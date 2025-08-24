@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO messages (id, chatroom, user_id, message)\n\t\t\t\t\tVALUES ($1, $2, $3, $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6bbe915a16bc01b8ccc46a622fc81fa7914661c19baf7236b1ac695ad2f758c5"
+}

@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, sequence_id, user_id, message, sent_at\n\t\t\tFROM messages\n\t\t\tWHERE\n\t            ($1::BIGINT IS NULL OR sequence_id >= $1)\n\t        AND\n\t            ($2::BIGINT IS NULL OR sequence_id <= $2)\n\t        ORDER BY sequence_id ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "sequence_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "message",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "sent_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a521da073ea43fa64a3b62eb1d3bbc48a1e753594f8917c7da59833a6d6719a9"
+}

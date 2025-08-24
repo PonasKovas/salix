@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT sequence_id\n\t\t\tFROM messages\n\t\t\tWHERE chatroom = $1\n\t\t\tORDER BY sequence_id DESC\n\t\t\tLIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sequence_id",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "096b85b10214e9f480eb4ebf8d16cc7d59d9d66da3ec1b8e86fac51daa8e2518"
+}
