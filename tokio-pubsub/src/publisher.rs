@@ -18,7 +18,7 @@ use tokio::{
 
 mod drive;
 
-pub use drive::PublisherDriver;
+pub use drive::{EventReactor, PublisherDriver};
 
 /// The main structure.
 ///
@@ -89,7 +89,9 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 	/// **This must be called in a loop** to keep the [`Publisher`] functioning,
 	/// it handles creating/destroying subscribers, handling new subscriptions
 	/// to topics.
-	pub async fn drive<'a, ERR>(&'a mut self) -> PublisherDriver<'a, T, M, C, E, ERR> {
+	///
+	/// This is separated into two calls in order for this call to be cancel-safe.
+	pub async fn drive<'a>(&'a mut self) -> PublisherDriver<'a, T, M, C, E> {
 		// impossible to get None, since there will be always at
 		// least one sender in the Publisher struct itself
 		let control_msg = self.control_receiver.recv().await.unwrap();
@@ -148,13 +150,9 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 		self.next_subscriber_id += 1;
 		id
 	}
-	async fn destroy_subscriber<ERR, F>(
-		&mut self,
-		id: u64,
-		mut on_topic_unsubscribe: F,
-	) -> Result<(), ERR>
+	async fn destroy_subscriber<R>(&mut self, id: u64, mut reactor: R) -> Result<(), R::Error>
 	where
-		F: AsyncFnMut(&T) -> Result<(), ERR>,
+		R: EventReactor<T, C, E>,
 	{
 		// This should never fail, because the only way to call to destroy a subscriber
 		// is by dropping the Subscriber instance, and the only way to obtain a Subscriber
@@ -166,20 +164,19 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 
 		for (topic, abort_handle) in subscriber.funnel_tasks {
 			abort_handle.abort();
-			self.cleanup_topic_if_empty(&topic, &mut on_topic_unsubscribe)
-				.await?;
+			self.cleanup_topic_if_empty(&topic, &mut reactor).await?;
 		}
 
 		Ok(())
 	}
-	async fn add_topic<ERR, F>(
+	async fn add_topic<R>(
 		&mut self,
 		id: u64,
 		topic: T,
-		mut on_topic_subscribe: F,
-	) -> Result<Result<Result<C, E>, TopicAlreadyAdded>, ERR>
+		mut reactor: R,
+	) -> Result<Result<Result<C, E>, TopicAlreadyAdded>, R::Error>
 	where
-		F: AsyncFnMut(&T) -> Result<Result<C, E>, ERR>,
+		R: EventReactor<T, C, E>,
 	{
 		// This should never fail, because the only way to call this function is through a living
 		// Subscriber instance, and the only way to obtain a Subscriber
@@ -195,7 +192,7 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 			return Ok(Err(TopicAlreadyAdded));
 		}
 
-		let context = on_topic_subscribe(&topic).await?;
+		let context = reactor.on_subscribe(&topic).await?;
 
 		// dont actually subscribe to the topic if failure
 		if context.is_err() {
@@ -217,14 +214,14 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 
 		Ok(Ok(context))
 	}
-	async fn remove_topic<ERR, F>(
+	async fn remove_topic<R>(
 		&mut self,
 		id: u64,
 		topic: T,
-		on_topic_unsubscribe: F,
-	) -> Result<Result<(), TopicNotSubscribed>, ERR>
+		mut reactor: R,
+	) -> Result<Result<(), TopicNotSubscribed>, R::Error>
 	where
-		F: AsyncFnMut(&T) -> Result<(), ERR>,
+		R: EventReactor<T, C, E>,
 	{
 		// This should never fail, because the only way to call this function is through a living
 		// Subscriber instance, and the only way to obtain a Subscriber
@@ -242,19 +239,18 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 		};
 
 		abort_handle.abort();
-		self.cleanup_topic_if_empty(&topic, on_topic_unsubscribe)
-			.await?;
+		self.cleanup_topic_if_empty(&topic, &mut reactor).await?;
 
 		Ok(Ok(()))
 	}
 	/// If a given topic has no more subscribers, removes it completely
-	async fn cleanup_topic_if_empty<ERR, F>(
+	async fn cleanup_topic_if_empty<R>(
 		&mut self,
 		topic: &T,
-		mut on_topic_unsubscribe: F,
-	) -> Result<(), ERR>
+		reactor: &mut R,
+	) -> Result<(), R::Error>
 	where
-		F: AsyncFnMut(&T) -> Result<(), ERR>,
+		R: EventReactor<T, C, E>,
 	{
 		let topic_sender = match self.topics.get(topic) {
 			Some(x) => x,
@@ -263,7 +259,7 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Publisher<T, M, C, E>
 		};
 
 		if topic_sender.receiver_count() == 0 {
-			on_topic_unsubscribe(topic).await?;
+			reactor.on_unsubscribe(topic).await?;
 			self.topics.remove(topic);
 		}
 

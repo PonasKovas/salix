@@ -1,5 +1,6 @@
 use crate::ServerState;
 use crate::socket::{RecvError, Socket};
+use crate::update_listener::UpdateSubscriber;
 use anyhow::{Context, Result};
 use axum::{
 	extract::{Path, State, WebSocketUpgrade},
@@ -14,6 +15,7 @@ use sqlx::postgres::PgListener;
 use thiserror::Error;
 use tokio::select;
 use tokio::sync::mpsc::{Receiver, channel};
+use tokio_pubsub::PubSubMessage;
 use tracing::error;
 use uuid::Uuid;
 
@@ -51,6 +53,7 @@ pub async fn main_endpoint(
 struct ConnectionState {
 	user_id: Uuid,
 	last_msg_seq_id: Option<i64>,
+	update_subscriber: UpdateSubscriber,
 }
 
 #[derive(Error, Debug)]
@@ -59,12 +62,8 @@ enum Error {
 	Internal(#[from] anyhow::Error),
 	#[error(transparent)]
 	Axum(#[from] axum::Error),
-	#[error("client not authenticated")]
-	Unauthenticated,
 	#[error("invalid auth token")]
 	Unauthorized,
-	#[error("unexpected packet")]
-	UnexpectedPacket,
 	#[error("timed out")]
 	TimedOut,
 	#[error("websocket closed")]
@@ -95,9 +94,7 @@ impl From<Error> for s2c::Error {
 		match value {
 			Error::Axum(_) => Self::Internal,
 			Error::Internal(_) => Self::Internal,
-			Error::Unauthenticated => Self::Unauthenticated,
 			Error::Unauthorized => Self::Unauthorized,
-			Error::UnexpectedPacket => Self::UnexpectedPacket,
 			Error::TimedOut => Self::TimedOut,
 			Error::Closed => Self::Internal,
 			Error::TextFrame => Self::TextFrame,
@@ -128,10 +125,17 @@ async fn handle_socket(server: &mut ServerState, socket: &mut Socket<'_>) -> Res
 	let mut state = ConnectionState {
 		user_id: user.id,
 		last_msg_seq_id: None,
+		update_subscriber: server.updates.subscribe().await,
 	};
-	let mut new_msgs = new_msg_listener(&server).await?;
+
+	state
+		.update_subscriber
+		.messages
+		.add_topic(Uuid::nil())
+		.await
+		.unwrap();
 	loop {
-		next_event(server, &mut state, socket, &mut new_msgs).await?;
+		next_event(server, &mut state, socket).await?;
 	}
 }
 
@@ -139,44 +143,26 @@ async fn next_event(
 	server: &mut ServerState,
 	state: &mut ConnectionState,
 	socket: &mut Socket<'_>,
-	new_msgs: &mut Receiver<NewMsgListenerUpdate>,
 ) -> Result<(), Error> {
 	select! {
 		packet = socket.recv() => {
 			handle_packet(server, state, socket, packet?).await?;
 		}
-		msg = new_msgs.recv() => {
-			match msg.context("new msg listener task dropped?")? {
-				NewMsgListenerUpdate::Disconnect => {
-					// fetch all recent messages manually
-					if let Some(last_msg_id) = state.last_msg_seq_id {
-						let mut messages = server.db.messages_by_seq_id((last_msg_id+1)..);
-						while let Some(msg) = messages.next().await {
-							let msg = msg?;
-							socket.send_packet(s2c::NewMessage{
-								user: msg.user_id.to_string(),
-								message: msg.message,
-							}).await?;
-							state.last_msg_seq_id = Some(msg.sequence_id);
-						}
-					}
-				},
-				NewMsgListenerUpdate::NewMsg(uuid) => {
-					let msg = match server.db.message_by_id(uuid).await? {
-						Some(x) => x,
-						None => {
-							error!("received new msg update but msg id doesnt exist");
-							return Ok(());
-						}
-					};
+		msg = state.update_subscriber.messages.recv() => {
+			let (chat_id, msg) = msg.context("new msg listener task dropped?")?;
 
+			match msg {
+				PubSubMessage::Lagged(missed) => {
+					// todo fetch missed messages
+				}
+				PubSubMessage::Ok(msg) => {
 					state.last_msg_seq_id = Some(msg.sequence_id);
 
 					socket.send_packet(s2c::NewMessage{
 						user: msg.user_id.to_string(),
-						message: msg.message,
+						message: msg.message.clone(),
 					}).await?;
-				},
+				}
 			}
 		},
 	}

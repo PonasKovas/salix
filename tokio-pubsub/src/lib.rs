@@ -44,7 +44,7 @@ mod subscriber;
 mod traits;
 
 pub use options::Options;
-pub use publisher::{Publisher, PublisherDriver};
+pub use publisher::{EventReactor, Publisher, PublisherDriver};
 pub use publisher_handle::PublisherHandle;
 pub use subscriber::Subscriber;
 pub use traits::{Message, Topic, TopicContext, TopicError};

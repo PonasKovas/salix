@@ -6,7 +6,7 @@ use crate::{
 use messages::{ChatroomContext, MessagesListener};
 use sqlx::PgPool;
 use tokio::spawn;
-use tokio_pubsub::{Publisher, PublisherHandle};
+use tokio_pubsub::{Publisher, PublisherHandle, Subscriber};
 use tracing::error;
 use uuid::Uuid;
 
@@ -15,6 +15,11 @@ mod messages;
 #[derive(Clone, Debug)]
 pub struct UpdateListener {
 	messages: PublisherHandle<Uuid, Message, ChatroomContext>,
+}
+
+#[derive(Debug)]
+pub struct UpdateSubscriber {
+	pub messages: Subscriber<Uuid, Message, ChatroomContext>,
 }
 
 impl UpdateListener {
@@ -33,23 +38,9 @@ impl UpdateListener {
 			messages: messages_handle,
 		})
 	}
-	// /// returns the last message that was in the chat sequence id
-	// pub async fn subscribe(&self) -> (i64, MessagesSubscriber) {
-	// 	let (oneshot_sender, oneshot_receiver) = oneshot::channel();
-	// 	self.control
-	// 		.send(ControlMessage::SubscribeToChat {
-	// 			respond: oneshot_sender,
-	// 		})
-	// 		.await
-	// 		.unwrap();
-
-	// 	let response = oneshot_receiver.await.unwrap();
-
-	// 	(
-	// 		response.last_message_seq_id,
-	// 		MessagesSubscriber {
-	// 			receiver: response.updates,
-	// 		},
-	// 	)
-	// }
+	pub async fn subscribe(&self) -> UpdateSubscriber {
+		UpdateSubscriber {
+			messages: self.messages.subscribe().await.unwrap(),
+		}
+	}
 }

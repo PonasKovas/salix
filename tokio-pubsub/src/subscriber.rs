@@ -59,7 +59,7 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Subscriber<T, M, C, E
 	/// subscriber will start receiving them.
 	///
 	/// This can be reversed by [`Subscriber::remove_topic`].
-	pub async fn add_topic(&mut self, topic: T) -> Result<C, AddTopicError<E>> {
+	pub async fn add_topic(&self, topic: T) -> Result<C, AddTopicError<E>> {
 		let (response_sender, response_receiver) = oneshot::channel();
 
 		self.control()
@@ -77,7 +77,7 @@ impl<T: Topic, M: Message, C: TopicContext, E: TopicError> Subscriber<T, M, C, E
 			.map_err(AddTopicError::TopicError)?)
 	}
 	/// Unsubscribes from a topic `T`. Nothing will happen if the topic was not subscribed
-	pub async fn remove_topic(&mut self, topic: T) -> Result<(), RemoveTopicError> {
+	pub async fn remove_topic(&self, topic: T) -> Result<(), RemoveTopicError> {
 		let (response_sender, response_receiver) = oneshot::channel();
 
 		self.control()

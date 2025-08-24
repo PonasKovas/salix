@@ -5,9 +5,9 @@ use anyhow::bail;
 use chrono::{DateTime, Local};
 use serde::Deserialize;
 use sqlx::{PgPool, postgres::PgListener};
-use std::collections::hash_map::Entry;
+use std::{collections::hash_map::Entry, convert::Infallible};
 use tokio::select;
-use tokio_pubsub::Publisher;
+use tokio_pubsub::{EventReactor, Publisher};
 use uuid::Uuid;
 
 pub type MessagesPublisher = Publisher<Uuid, Message, ChatroomContext>;
@@ -26,6 +26,21 @@ pub struct ChatroomContext {
 	last_message_seq_id: i64,
 }
 
+struct MessagesReactor<'a>(&'a mut MessagesListener);
+impl<'a> EventReactor<Uuid, ChatroomContext, Infallible> for MessagesReactor<'a> {
+	type Error = sqlx::Error;
+
+	async fn on_subscribe(
+		&mut self,
+		topic: &Uuid,
+	) -> Result<Result<ChatroomContext, Infallible>, Self::Error> {
+		self.0.on_subscribe(topic).await.map(Ok)
+	}
+	async fn on_unsubscribe(&mut self, topic: &Uuid) -> Result<(), Self::Error> {
+		self.0.on_unsubscribe(topic).await
+	}
+}
+
 impl MessagesListener {
 	pub async fn new(db: &Database<PgPool>) -> sqlx::Result<Self> {
 		let listener = PgListener::connect_with(&db.inner).await?;
@@ -38,14 +53,8 @@ impl MessagesListener {
 	pub async fn run(mut self, mut publisher: MessagesPublisher) -> anyhow::Result<()> {
 		loop {
 			select! {
-				driver = publisher.drive::<sqlx::Error>() => {
-					let driver = driver.on_topic_subscribe(async |topic: &Uuid| {
-						self.on_subscribe(topic).await.map(Ok)
-					}).await;
-					let driver = driver.on_topic_unsubscribe(async |topic: &Uuid| {
-						self.on_unsubscribe(topic).await
-					}).await;
-					driver.finish().always_send().await?;
+				driver = publisher.drive() => {
+					driver.finish(MessagesReactor(&mut self)).always_send().await?;
 				},
 				notification = self.db.try_recv() => {
 					let notification = match notification? {

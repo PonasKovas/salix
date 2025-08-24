@@ -27,7 +27,7 @@ impl<D: ExecutorHack> Database<D> {
 	pub fn new(inner: D) -> Self {
 		Self { inner }
 	}
-	fn as_executor(&mut self) -> impl Executor<Database = Postgres> {
+	fn as_executor(&mut self) -> impl Executor<'_, Database = Postgres> {
 		self.inner.as_executor()
 	}
 }
@@ -45,7 +45,7 @@ impl<D> DerefMut for Database<D> {
 	}
 }
 
-trait ExecutorHack {
+pub trait ExecutorHack {
 	type Executor<'a>: Executor<'a, Database = Postgres>
 	where
 		Self: 'a;

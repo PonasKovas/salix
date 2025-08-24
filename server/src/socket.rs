@@ -63,6 +63,7 @@ impl<'a> Socket<'a> {
 				} => {
 					return Err(RecvError::TimedOut);
 				},
+				// todo is this cancel-safe?
 				frame = self.socket.recv() => {
 					let frame = match frame {
 						Some(x) => x?,

@@ -1,9 +1,9 @@
-use std::error::Error;
+use std::{convert::Infallible, error::Error};
 use tokio::{
 	select,
 	sync::mpsc::{Sender, channel, error::SendError},
 };
-use tokio_pubsub::{PubSubMessage, Publisher, PublisherHandle};
+use tokio_pubsub::{EventReactor, PubSubMessage, Publisher, PublisherHandle};
 
 const MESSAGES: &[&str] = &["hello", "second message", "third message!!!"];
 
@@ -24,17 +24,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
 				}
 			}
 			driver = publisher.drive() => {
-				let r = driver.on_topic_subscribe(async |topic: &u32| {
-					println!("someone subscribed to topic {topic}");
-					current_topic = Some(*topic);
-					external_source(external_sender.clone());
+				struct MyReactor<'a>{
+					current_topic: &'a mut Option<u32>,
+					external_sender: &'a Sender<String>,
+				}
+				impl<'a> EventReactor<u32, (), Infallible> for MyReactor<'a> {
+					type Error = &'static str;
 
-					Ok(Ok(()))
-				}).await
-				.on_topic_unsubscribe(async |_topic: &u32| Err("bye")).await
-				.finish().await;
+					async fn on_subscribe(&mut self, topic: &u32) -> Result<Result<(), Infallible>, Self::Error> {
+						println!("someone subscribed to topic {topic}");
+						*self.current_topic = Some(*topic);
+						external_source(self.external_sender.clone());
 
-				if r.is_err() {
+						Ok(Ok(()))
+					}
+					async fn on_unsubscribe(&mut self, _topic: &u32) -> Result<(), Self::Error> {
+						Err("bye")
+					}
+				}
+				let reactor =MyReactor {
+					current_topic: &mut current_topic,
+					external_sender: &external_sender
+				};
+
+				if driver.finish(reactor).await.is_err() {
 					break;
 				}
 			},
