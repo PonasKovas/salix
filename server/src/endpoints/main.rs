@@ -1,5 +1,5 @@
+use crate::ServerState;
 use crate::socket::{RecvError, Socket};
-use crate::{ServerState, db};
 use anyhow::{Context, Result};
 use axum::{
 	extract::{Path, State, WebSocketUpgrade},
@@ -8,6 +8,7 @@ use axum::{
 };
 use futures::StreamExt;
 use protocol::C2S;
+use protocol::c2s::Authenticate;
 use protocol::s2c::{self, UserInfo};
 use sqlx::postgres::PgListener;
 use thiserror::Error;
@@ -19,13 +20,13 @@ use uuid::Uuid;
 pub async fn main_endpoint(
 	ws: WebSocketUpgrade,
 	Path(version): Path<u32>,
-	State(server): State<ServerState>,
+	State(mut server): State<ServerState>,
 ) -> impl IntoResponse {
 	match version {
 		protocol::VERSION => Ok(ws.on_upgrade(move |mut socket| async move {
 			let mut socket = Socket::new(&mut socket);
 
-			if let Err(e) = handle_socket(&server, &mut socket).await {
+			if let Err(e) = handle_socket(&mut server, &mut socket).await {
 				error!("{e}");
 
 				let error_to_send_client: s2c::Error = match e {
@@ -105,34 +106,27 @@ impl From<Error> for s2c::Error {
 	}
 }
 
-async fn handle_socket(server: &ServerState, socket: &mut Socket<'_>) -> Result<(), Error> {
+async fn handle_socket(server: &mut ServerState, socket: &mut Socket<'_>) -> Result<(), Error> {
 	// first and foremost we are waiting for the Authenticate packet
-	let first_packet = socket.recv().await?;
+	let auth: Authenticate = socket.recv().await?;
+	let token = Uuid::from_bytes(auth.auth_token);
 
-	let user_id: Uuid = match first_packet {
-		C2S::Authenticate(authenticate) => {
-			let token = Uuid::from_bytes(authenticate.auth_token);
+	let user = server
+		.db
+		.user_by_auth_token(token)
+		.await?
+		.ok_or(Error::Unauthorized)?;
 
-			let user = server
-				.db
-				.user_by_auth_token(token)
-				.await?
-				.ok_or(Error::Unauthorized)?;
-
-			socket
-				.send_packet(UserInfo {
-					username: user.username,
-				})
-				.await?;
-			user.id
-		}
-		_ => return Err(Error::Unauthenticated),
-	};
+	socket
+		.send_packet(UserInfo {
+			username: user.username,
+		})
+		.await?;
 
 	// great, now can start normal stuff
 
 	let mut state = ConnectionState {
-		user_id,
+		user_id: user.id,
 		last_msg_seq_id: None,
 	};
 	let mut new_msgs = new_msg_listener(&server).await?;
@@ -142,7 +136,7 @@ async fn handle_socket(server: &ServerState, socket: &mut Socket<'_>) -> Result<
 }
 
 async fn next_event(
-	server: &ServerState,
+	server: &mut ServerState,
 	state: &mut ConnectionState,
 	socket: &mut Socket<'_>,
 	new_msgs: &mut Receiver<NewMsgListenerUpdate>,
@@ -191,13 +185,12 @@ async fn next_event(
 }
 
 async fn handle_packet(
-	server: &ServerState,
+	server: &mut ServerState,
 	state: &mut ConnectionState,
 	socket: &mut Socket<'_>,
 	packet: C2S,
 ) -> Result<(), Error> {
 	match packet {
-		C2S::Authenticate(_) => return Err(Error::UnexpectedPacket),
 		C2S::SendMessage(send_message) => {
 			server
 				.db

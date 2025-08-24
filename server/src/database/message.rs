@@ -1,7 +1,6 @@
-use super::Database;
+use super::{Database, ExecutorHack};
 use chrono::{DateTime, Local};
 use futures::Stream;
-use sqlx::{Executor, Postgres};
 use std::{
 	ops::{Bound, RangeBounds},
 	pin::Pin,
@@ -17,8 +16,8 @@ pub struct Message {
 	pub sent_at: DateTime<Local>,
 }
 
-impl Database {
-	pub async fn message_by_id(&self, id: Uuid) -> sqlx::Result<Option<Message>> {
+impl<D: ExecutorHack> Database<D> {
+	pub async fn message_by_id(&mut self, id: Uuid) -> sqlx::Result<Option<Message>> {
 		sqlx::query_as!(
 			Message,
 			r#"SELECT id, sequence_id, user_id, message, sent_at
@@ -26,11 +25,11 @@ impl Database {
 			WHERE id = $1"#,
 			id,
 		)
-		.fetch_optional(&self.inner)
+		.fetch_optional(self.as_executor())
 		.await
 	}
 	pub fn messages_by_seq_id(
-		&self,
+		&mut self,
 		seq_range: impl RangeBounds<i64>,
 	) -> Pin<Box<dyn Stream<Item = sqlx::Result<Message>> + Send + '_>> {
 		let start = match seq_range.start_bound() {
@@ -56,9 +55,9 @@ impl Database {
 			start,
 			end
 		)
-		.fetch(&self.inner)
+		.fetch(self.as_executor())
 	}
-	pub async fn insert_message(&self, user_id: Uuid, message: &str) -> sqlx::Result<Uuid> {
+	pub async fn insert_message(&mut self, user_id: Uuid, message: &str) -> sqlx::Result<Uuid> {
 		let msg_id = Uuid::now_v7();
 
 		sqlx::query!(
@@ -68,9 +67,22 @@ impl Database {
 			user_id,
 			message
 		)
-		.execute(&self.inner)
+		.execute(self.as_executor())
 		.await
 		.map(|_| msg_id)
+	}
+	pub async fn fetch_last_message_seq_id(&mut self, chatroom_id: &Uuid) -> sqlx::Result<i64> {
+		sqlx::query_scalar!(
+			r#"SELECT sequence_id
+			FROM messages
+			WHERE chatroom = $1
+			ORDER BY sequence_id DESC
+			LIMIT 1"#,
+			chatroom_id
+		)
+		.fetch_optional(self.as_executor())
+		.await
+		.map(|opt| opt.unwrap_or(-1))
 	}
 }
 

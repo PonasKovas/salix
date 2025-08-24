@@ -1,21 +1,19 @@
-use crate::db::{Database, message::Message};
+use crate::database::{Database, message::Message};
 use ahash::{HashMap, HashMapExt};
+use always_send::FutureExt;
 use anyhow::bail;
 use chrono::{DateTime, Local};
 use serde::Deserialize;
-use sqlx::postgres::PgListener;
-use std::{collections::hash_map::Entry, convert::Infallible, sync::Arc};
-use tokio::{
-	select,
-	sync::{broadcast, mpsc, oneshot},
-};
-use tokio_pubsub::{Publisher, TopicControl};
-use tracing::error;
+use sqlx::{PgPool, postgres::PgListener};
+use std::collections::hash_map::Entry;
+use tokio::select;
+use tokio_pubsub::Publisher;
 use uuid::Uuid;
 
+pub type MessagesPublisher = Publisher<Uuid, Message, ChatroomContext>;
+
 pub struct MessagesListener {
-	db: PgListener,
-	publisher: Publisher<Uuid, Message, i64>,
+	db: Database<PgListener>,
 	chatrooms: HashMap<Uuid, ChatroomState>,
 }
 
@@ -24,66 +22,41 @@ struct ChatroomState {
 	last_message_seq_id: i64,
 }
 
-struct ChatroomTopicControl<'a> {
-	db: &'a mut PgListener,
-	chatrooms: &'a mut HashMap<Uuid, ChatroomState>,
-}
-impl<'a> TopicControl<Uuid, i64, Infallible> for ChatroomTopicControl<'a> {
-	type Error = sqlx::Error;
-
-	async fn on_topic_subscribe(
-		&mut self,
-		topic: &Uuid,
-	) -> Result<Result<i64, Infallible>, Self::Error> {
-		let chatroom_data = self
-			.chatrooms
-			.entry(topic.clone())
-			.or_insert_with(|| ChatroomState {
-				listeners_n: 0,
-				last_message_seq_id: -1,
-			});
-		chatroom_data.listeners_n += 1;
-
-		Ok(Ok(chatroom_data.last_message_seq_id))
-	}
-	async fn on_topic_unsubscribe(&mut self, topic: &Uuid) -> Result<(), Self::Error> {
-		let listeners_n = &mut self.chatrooms.get_mut(topic).unwrap().listeners_n;
-		*listeners_n -= 1;
-
-		if *listeners_n == 0 {
-			self.chatrooms.remove(topic);
-		}
-
-		Ok(())
-	}
+pub struct ChatroomContext {
+	last_message_seq_id: i64,
 }
 
 impl MessagesListener {
-	pub async fn new(
-		db: &Database,
-		publisher: Publisher<Uuid, Message, i64>,
-	) -> sqlx::Result<Self> {
+	pub async fn new(db: &Database<PgPool>) -> sqlx::Result<Self> {
 		let listener = PgListener::connect_with(&db.inner).await?;
 
 		Ok(Self {
-			db: listener,
-			publisher,
+			db: Database::new(listener),
 			chatrooms: HashMap::new(),
 		})
 	}
-	pub async fn run(mut self) -> anyhow::Result<()> {
+	pub async fn run(mut self, mut publisher: MessagesPublisher) -> anyhow::Result<()> {
 		loop {
 			select! {
-				_ = self.publisher.drive(ChatroomTopicControl{ db: &mut self.db, chatrooms: &mut self.chatrooms }) => {},
+				driver = publisher.drive::<sqlx::Error>() => {
+					let driver = driver.on_topic_subscribe(async |topic: &Uuid| {
+						self.on_subscribe(topic).await.map(Ok)
+					}).await;
+					let driver = driver.on_topic_unsubscribe(async |topic: &Uuid| {
+						self.on_unsubscribe(topic).await
+					}).await;
+					driver.finish().always_send().await?;
+				},
 				notification = self.db.try_recv() => {
 					let notification = match notification? {
 						Some(x) => x,
 						None => {
+							// disrupted connection, fetch all messages since last received and continue
 							todo!();
 						},
 					};
 
-					let chat_id: Uuid = notification.channel().strip_prefix("chat-").unwrap().parse().unwrap();
+					let chat_id: Uuid = uuid_from_channel_name(notification.channel());
 
 					#[derive(Clone, Debug, Deserialize)]
 					struct NotificationPayload {
@@ -113,64 +86,62 @@ impl MessagesListener {
 						};
 					} else {
 						// full message couldnt fit in the notification payload, gotta fetch it manually
-						todo!()
+						new_message = self.db.message_by_id(payload.id).await?.unwrap();
 					}
 
-					self.publisher.publish(&chat_id, new_message).unwrap();
+					publisher.publish(&chat_id, new_message).unwrap();
 				}
 			}
 		}
 	}
+	async fn on_subscribe(&mut self, topic: &Uuid) -> Result<ChatroomContext, sqlx::Error> {
+		let chatroom_data = match self.chatrooms.entry(topic.clone()) {
+			Entry::Occupied(occupied_entry) => occupied_entry.into_mut(),
+			Entry::Vacant(vacant_entry) => {
+				self.db
+					.listen(&channel_name_from_uuid(topic))
+					.always_send()
+					.await?;
+
+				// now we are already listening, so we can fetch the current last message seq id
+				// and be sure that we are not gonna miss any since that one
+				let last_seq_id = self
+					.db
+					.fetch_last_message_seq_id(topic)
+					.always_send()
+					.await?;
+
+				vacant_entry.insert(ChatroomState {
+					listeners_n: 0,
+					last_message_seq_id: last_seq_id,
+				})
+			}
+		};
+		chatroom_data.listeners_n += 1;
+
+		Ok(ChatroomContext {
+			last_message_seq_id: chatroom_data.last_message_seq_id,
+		})
+	}
+	async fn on_unsubscribe(&mut self, topic: &Uuid) -> Result<(), sqlx::Error> {
+		let listeners_n = &mut self.chatrooms.get_mut(topic).unwrap().listeners_n;
+		*listeners_n -= 1;
+
+		if *listeners_n == 0 {
+			self.db
+				.unlisten(&channel_name_from_uuid(topic))
+				.always_send()
+				.await?;
+			self.chatrooms.remove(topic);
+		}
+
+		Ok(())
+	}
 }
 
-// struct ChatListener {
-// 	updates: broadcast::Sender<Arc<Message>>,
-// 	last_recv_id: i64,
-// }
-
-// impl ChatListener {
-// 	async fn new(db: &mut PgListener, id: Uuid) -> sqlx::Result<Self> {
-// 		db.listen(&format!("chat-{id}")).await?;
-
-// 		// now we are already listening, so we can fetch the current last message seq id
-// 		// and be sure that we are not gonna miss any since that one
-// 		let id = sqlx::query_scalar!(
-// 			r#"SELECT sequence_id
-// 			FROM messages
-// 			WHERE chatroom = $1
-// 			ORDER BY sequence_id DESC
-// 			LIMIT 1"#,
-// 			id
-// 		)
-// 		.fetch_optional(db)
-// 		.await?;
-
-// 		Ok(Self {
-// 			updates: broadcast::Sender::new(16),
-// 			// id is None if there are no messages in that channel,
-// 			// and they start from 0 so we have "received" -1
-// 			last_recv_id: id.unwrap_or(-1),
-// 		})
-// 	}
-// 	fn subscribe(&self) -> broadcast::Receiver<Arc<Message>> {
-// 		self.updates.subscribe()
-// 	}
-// 	fn last_recv_id(&self) -> i64 {
-// 		self.last_recv_id
-// 	}
-// }
-
-// pub enum ControlMessage {
-// 	SubscribeToChat {
-// 		chatroom_id: Uuid,
-// 		respond: oneshot::Sender<SubscribeToChatResponse>,
-// 	},
-// }
-
-// #[derive(Debug)]
-// pub struct SubscribeToChatResponse {
-// 	// the sequence id of the last message that was in the chat
-// 	// before starting to listen to it
-// 	pub last_message_seq_id: i64,
-// 	pub updates: broadcast::Receiver<Arc<Message>>,
-// }
+fn channel_name_from_uuid(uuid: &Uuid) -> String {
+	format!("chat-{uuid}")
+}
+fn uuid_from_channel_name(name: &str) -> Uuid {
+	name.strip_prefix("chat-").unwrap().parse().unwrap()
+}

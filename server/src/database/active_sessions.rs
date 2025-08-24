@@ -1,9 +1,9 @@
-use super::Database;
+use super::{Database, ExecutorHack};
 use uuid::Uuid;
 
-impl Database {
-	pub async fn insert_active_sessions(
-		&self,
+impl<D: ExecutorHack> Database<D> {
+	pub async fn insert_active_session(
+		&mut self,
 		user_id: Uuid,
 		lifetime_hours: u32,
 	) -> sqlx::Result<Uuid> {
@@ -16,7 +16,7 @@ impl Database {
 			user_id,
 			lifetime_hours as i64
 		)
-		.execute(&self.inner)
+		.execute(self.as_executor())
 		.await
 		.map(|_| session_token)
 	}

@@ -1,5 +1,4 @@
-use super::Database;
-use sqlx::{Executor, Postgres};
+use super::{Database, ExecutorHack};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
@@ -15,8 +14,8 @@ pub enum InsertUserError {
 	EmailConflict,
 }
 
-impl Database {
-	pub async fn user_by_auth_token(&self, token: Uuid) -> sqlx::Result<Option<User>> {
+impl<D: ExecutorHack> Database<D> {
+	pub async fn user_by_auth_token(&mut self, token: Uuid) -> sqlx::Result<Option<User>> {
 		sqlx::query_as!(
 			User,
 			r#"SELECT u.id, u.username, u.email, u.password
@@ -24,10 +23,10 @@ impl Database {
 			WHERE active_sessions.token = $1"#,
 			token,
 		)
-		.fetch_optional(&self.inner)
+		.fetch_optional(self.as_executor())
 		.await
 	}
-	pub async fn user_by_id(&self, id: Uuid) -> sqlx::Result<Option<User>> {
+	pub async fn user_by_id(&mut self, id: Uuid) -> sqlx::Result<Option<User>> {
 		sqlx::query_as!(
 			User,
 			r#"SELECT id, username, email, password
@@ -35,10 +34,10 @@ impl Database {
 			WHERE id = $1"#,
 			id,
 		)
-		.fetch_optional(&self.inner)
+		.fetch_optional(self.as_executor())
 		.await
 	}
-	pub async fn user_by_email(&self, email: &str) -> sqlx::Result<Option<User>> {
+	pub async fn user_by_email(&mut self, email: &str) -> sqlx::Result<Option<User>> {
 		sqlx::query_as!(
 			User,
 			r#"SELECT id, username, email, password
@@ -46,11 +45,11 @@ impl Database {
 			WHERE email = $1"#,
 			email,
 		)
-		.fetch_optional(&self.inner)
+		.fetch_optional(self.as_executor())
 		.await
 	}
 	pub async fn insert_user(
-		&self,
+		&mut self,
 		username: &str,
 		email: &str,
 		password: &str,
@@ -64,7 +63,7 @@ impl Database {
 			email,
 			password
 		)
-		.execute(&self.inner)
+		.execute(self.as_executor())
 		.await
 		{
 			Ok(_) => Ok(Ok(user_id)),

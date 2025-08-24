@@ -1,4 +1,4 @@
-use crate::{ServerState, db::user::InsertUserError};
+use crate::{ServerState, database::user::InsertUserError};
 use anyhow::Context;
 use argon2::{
 	Algorithm, Argon2, Params, PasswordVerifier, Version,
@@ -49,7 +49,7 @@ pub fn routes() -> Router<ServerState> {
 }
 
 async fn new_account(
-	State(state): State<ServerState>,
+	State(mut state): State<ServerState>,
 	Json(request): Json<NewAccountRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let salt = SaltString::generate(&mut OsRng);
@@ -71,7 +71,7 @@ async fn new_account(
 }
 
 async fn login(
-	State(state): State<ServerState>,
+	State(mut state): State<ServerState>,
 	Json(request): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, Error> {
 	let user = state
@@ -88,7 +88,7 @@ async fn login(
 
 	let token = state
 		.db
-		.insert_active_sessions(user.id, DEFAULT_AUTH_TOKEN_LIFETIME)
+		.insert_active_session(user.id, DEFAULT_AUTH_TOKEN_LIFETIME)
 		.await?;
 
 	Ok(Json(LoginSuccess { auth_token: token }))
