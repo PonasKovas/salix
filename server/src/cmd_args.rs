@@ -11,4 +11,7 @@ pub struct Args {
 	/// Dont migrate database
 	#[arg(short, long)]
 	pub no_migrate: bool,
+	/// Populate the database with dummy dev data
+	#[arg(short, long)]
+	pub populate: bool,
 }

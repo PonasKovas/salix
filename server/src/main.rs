@@ -13,6 +13,7 @@ mod config;
 mod database;
 mod endpoints;
 mod logging;
+mod populate;
 mod socket;
 mod update_listener;
 
@@ -30,6 +31,12 @@ async fn main() -> Result<()> {
 	let config = config::read_config(&args.config).await?;
 
 	let db = Database::init(&config, &args).await?;
+
+	if args.populate {
+		info!("Populating database.");
+		return populate::populate(db).await;
+	}
+
 	let state = ServerState {
 		updates: UpdateListener::init(&config, &args, &db).await?,
 		db,

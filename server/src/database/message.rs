@@ -57,13 +57,19 @@ impl<D: ExecutorHack> Database<D> {
 		)
 		.fetch(self.as_executor())
 	}
-	pub async fn insert_message(&mut self, user_id: Uuid, message: &str) -> sqlx::Result<Uuid> {
+	pub async fn insert_message(
+		&mut self,
+		chatroom_id: Uuid,
+		user_id: Uuid,
+		message: &str,
+	) -> sqlx::Result<Uuid> {
 		let msg_id = Uuid::now_v7();
 
 		sqlx::query!(
-			r#"INSERT INTO messages (id, user_id, message, sent_at)
-			VALUES ($1, $2, $3, NOW())"#,
+			r#"INSERT INTO messages (id, chatroom, user_id, message)
+					VALUES ($1, $2, $3, $4)"#,
 			msg_id,
+			chatroom_id,
 			user_id,
 			message
 		)

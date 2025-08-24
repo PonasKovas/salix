@@ -24,7 +24,7 @@ CREATE TABLE messages (
     sequence_id BIGSERIAL NOT NULL,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
-    sent_at TIMESTAMPTZ NOT NULL,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT messages_sequence_id_chatroom_key UNIQUE (sequence_id, chatroom)
 );

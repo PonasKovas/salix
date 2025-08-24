@@ -131,7 +131,7 @@ async fn handle_socket(server: &mut ServerState, socket: &mut Socket<'_>) -> Res
 	state
 		.update_subscriber
 		.messages
-		.add_topic(Uuid::nil())
+		.add_topic(Uuid::from_u128(5))
 		.await
 		.unwrap();
 	loop {
@@ -180,7 +180,7 @@ async fn handle_packet(
 		C2S::SendMessage(send_message) => {
 			server
 				.db
-				.insert_message(state.user_id, &send_message.message)
+				.insert_message(Uuid::from_u128(5), state.user_id, &send_message.message)
 				.await?;
 		}
 	}
