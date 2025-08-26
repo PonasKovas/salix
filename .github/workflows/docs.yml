@@ -26,7 +26,7 @@ jobs:
       - name: Build docs
         run: cargo doc --workspace
       - name: Add html redirect
-        run: echo '<meta http-equiv="refresh" content="0;url=salix/index.html">' > target/doc/index.html
+        run: echo '<meta http-equiv="refresh" content="0;url=protocol/index.html">' > target/doc/index.html
       - name: Remove lock file
         run: rm target/doc/.lock
       - name: Upload artifact
