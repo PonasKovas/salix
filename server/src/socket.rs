@@ -63,7 +63,7 @@ impl<'a> Socket<'a> {
 				} => {
 					return Err(RecvError::TimedOut);
 				},
-				// todo is this cancel-safe?
+				// todo is this cancel-safe? https://github.com/tokio-rs/axum/issues/3451
 				frame = self.socket.recv() => {
 					let frame = match frame {
 						Some(x) => x?,

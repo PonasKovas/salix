@@ -25,7 +25,10 @@ argon2 = "0.5.3"
 chrono = "0.4.41"
 serde_json = "1.0.142"
 ahash = "0.8.12"
-always_send = "0.1.1"
+ringbuffer = { version = "0.16.0", default-features = false }
 
 # questionable purpose:
 tower = "0.5.2" # hmm?
+
+# TO BE REMOVED
+always_send = "0.1.1"

@@ -24,3 +24,4 @@ chrono = { workspace = true, features = ["serde"] }
 serde_json.workspace = true
 ahash.workspace = true
 always_send.workspace = true
+ringbuffer.workspace = true
