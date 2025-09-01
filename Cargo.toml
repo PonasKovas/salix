@@ -29,6 +29,3 @@ ringbuffer = { version = "0.16.0", default-features = false }
 
 # questionable purpose:
 tower = "0.5.2" # hmm?
-
-# TO BE REMOVED
-always_send = "0.1.1"

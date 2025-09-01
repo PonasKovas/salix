@@ -7,4 +7,3 @@ edition.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "macros"] }
 ahash.workspace = true
 thiserror.workspace = true
-always_send.workspace = true

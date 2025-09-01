@@ -1,6 +1,5 @@
 use crate::database::{Database, message::Message};
 use ahash::{HashMap, HashMapExt};
-use always_send::FutureExt;
 use anyhow::bail;
 use chrono::{DateTime, Local};
 use futures::StreamExt;
@@ -84,7 +83,7 @@ impl MessagesListener {
 						}
 					}
 
-					driver.finish(Reactor(&mut self)).always_send().await?;
+					driver.finish(Reactor(&mut self)).await?;
 				},
 				notification = self.db.try_recv() => {
 					self.handle_notification(&mut publisher, notification?).await?;
@@ -216,10 +215,7 @@ impl MessagesListener {
 		*listeners_n -= 1;
 
 		if *listeners_n == 0 {
-			self.db
-				.unlisten(&channel_name_from_uuid(topic))
-				.always_send()
-				.await?;
+			self.db.unlisten(&channel_name_from_uuid(topic)).await?;
 			self.chatrooms.remove(topic);
 		}
 
@@ -238,13 +234,11 @@ async fn start_chat_listen(
 	db: &mut Database<PgListener>,
 	topic: &Uuid,
 ) -> sqlx::Result<ChatroomState> {
-	db.listen(&channel_name_from_uuid(topic))
-		.always_send()
-		.await?;
+	db.listen(&channel_name_from_uuid(topic)).await?;
 
 	// now we are already listening, so we can fetch the current last message seq id
 	// and be sure that we are not gonna miss any since that one
-	let last_seq_id = db.fetch_last_message_seq_id(topic).always_send().await?;
+	let last_seq_id = db.fetch_last_message_seq_id(topic).await?;
 
 	Ok(ChatroomState {
 		listeners_n: 0,
