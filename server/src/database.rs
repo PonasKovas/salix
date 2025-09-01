@@ -1,7 +1,6 @@
-use std::ops::{Deref, DerefMut};
-
 use crate::{cmd_args::Args, config::Config};
 use sqlx::{Executor, PgPool, Postgres, postgres::PgListener};
+use std::ops::{Deref, DerefMut};
 
 pub mod active_sessions;
 pub mod message;

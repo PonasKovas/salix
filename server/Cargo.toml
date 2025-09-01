@@ -24,3 +24,6 @@ chrono = { workspace = true, features = ["serde"] }
 serde_json.workspace = true
 ahash.workspace = true
 ringbuffer.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true # for controlling toxiproxy

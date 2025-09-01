@@ -26,6 +26,7 @@ chrono = "0.4.41"
 serde_json = "1.0.142"
 ahash = "0.8.12"
 ringbuffer = { version = "0.16.0", default-features = false }
+reqwest = "0.12.23"
 
 # questionable purpose:
 tower = "0.5.2" # hmm?
