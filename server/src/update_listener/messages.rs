@@ -46,7 +46,7 @@ pub async fn start(
 	let messages_listener = MessagesListener::new(db).await?;
 	spawn(async move {
 		if let Err(e) = messages_listener.run(publisher).await {
-			error!("{e}\n{}", e.backtrace());
+			error!("{e:?}\n{}", e.backtrace());
 		}
 	});
 
@@ -86,7 +86,7 @@ impl MessagesListener {
 					driver.finish(Reactor(&mut self)).await?;
 				},
 				notification = self.db.try_recv() => {
-					self.handle_notification(&mut publisher, notification.context("CONFIRM NOTIFICIATIONS!")?).await.context("handle notification")?;
+					self.handle_notification(&mut publisher, notification?).await.context("handle notification")?;
 				}
 			}
 		}
