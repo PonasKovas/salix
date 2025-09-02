@@ -37,7 +37,7 @@ pub async fn main() -> Result<()> {
 	}
 
 	let state = ServerState {
-		updates: UpdateListener::init(&config, &args, &db).await?,
+		updates: UpdateListener::init(&db).await?,
 		db,
 	};
 

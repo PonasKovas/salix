@@ -42,6 +42,7 @@ impl TestOptions {
 
 			db_url.push('@');
 		}
+
 		db_url.push_str(&format!(
 			"{}:{}/{}",
 			self.db_host,
@@ -82,13 +83,15 @@ async fn msg_listener_seq_id_race_condition() -> Result<()> {
 
 	// Database::init also migrates automatically
 	let db = Database::init(&config, &args).await?;
+	eprintln!("direct db connected");
 	let proxied_db = Database::new(PgPool::connect(&options.db_url(true)).await?);
+	eprintln!("proxied db connected");
 
 	populate::populate(&db).await?;
 
 	assert_disruption(&toxiproxy, &proxied_db).await?;
 
-	let listener = UpdateListener::init(&config, &args, &proxied_db).await?;
+	let listener = UpdateListener::init(&proxied_db).await?;
 	let mut subscriber = listener.subscribe().await;
 	subscriber.messages.add_topic(populate::CHAT_ID).await?;
 

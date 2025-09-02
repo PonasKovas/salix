@@ -21,7 +21,7 @@ pub struct UpdateSubscriber {
 }
 
 impl UpdateListener {
-	pub async fn init(_config: &Config, _args: &Args, db: &Database<PgPool>) -> sqlx::Result<Self> {
+	pub async fn init(db: &Database<PgPool>) -> sqlx::Result<Self> {
 		Ok(Self {
 			messages: messages::start(db).await?,
 		})
