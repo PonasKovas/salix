@@ -105,6 +105,8 @@ async fn msg_listener_seq_id_race_condition() -> Result<()> {
 		}
 	}
 
+	subscriber.destroy().await;
+
 	toxiproxy.finish().await?;
 	Ok(())
 }

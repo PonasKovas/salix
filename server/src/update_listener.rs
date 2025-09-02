@@ -28,3 +28,9 @@ impl UpdateListener {
 		}
 	}
 }
+
+impl UpdateSubscriber {
+	pub async fn destroy(self) {
+		self.messages.destroy().await;
+	}
+}
