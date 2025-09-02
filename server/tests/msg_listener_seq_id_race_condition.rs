@@ -3,7 +3,7 @@ use server::{cmd_args::Args, config::Config, database::Database, update_listener
 use std::{env::var, path::PathBuf};
 
 fn config() -> Config {
-	let database_url = var("DATABASE_URL").unwrap_or("postgres://localhost:5433/salix".to_owned());
+	let database_url = var("POSTGRES_URL").unwrap_or("postgres://localhost:5433/salix".to_owned());
 
 	Config {
 		bind_to: "0.0.0.0:0".parse().unwrap(),

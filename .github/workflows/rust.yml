@@ -40,5 +40,5 @@ jobs:
         run: cargo build --verbose --workspace
       - name: Run tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/salix
+          POSTGRES_URL: postgres://postgres:postgres@localhost:5432/salix
         run: cargo test --verbose --workspace
