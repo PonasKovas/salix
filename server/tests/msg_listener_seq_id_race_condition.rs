@@ -34,6 +34,7 @@ async fn msg_listener_seq_id_race_condition() -> Result<()> {
 				.from_env()
 				.expect("invalid logging directives"),
 		)
+		.pretty()
 		.init();
 
 	let options = TestOptions::get()?;
