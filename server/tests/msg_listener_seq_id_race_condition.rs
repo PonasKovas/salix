@@ -1,11 +1,14 @@
 use anyhow::{Result, bail, ensure};
 use common::TestOptions;
 use server::{
-	cmd_args::Args, config::Config, database::Database, populate, update_listener::UpdateListener,
+	cmd_args::Args, config::Config, database::Database, logging::init_logging, populate,
+	update_listener::UpdateListener,
 };
 use sqlx::{PgPool, postgres::PgListener};
 use std::{path::PathBuf, time::Duration};
 use tokio::time::timeout;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::EnvFilter;
 
 mod common;
 
@@ -25,6 +28,15 @@ fn args() -> Args {
 
 #[tokio::test]
 async fn msg_listener_seq_id_race_condition() -> Result<()> {
+	tracing_subscriber::fmt()
+		.with_env_filter(
+			EnvFilter::builder()
+				.with_default_directive(LevelFilter::ERROR.into())
+				.from_env()
+				.expect("invalid logging directives"),
+		)
+		.init();
+
 	let options = TestOptions::get()?;
 
 	let args = args();
