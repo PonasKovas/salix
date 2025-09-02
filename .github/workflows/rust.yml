@@ -23,6 +23,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: salix
+          POSTGRES_INITDB_ARGS: "-c max_connections=20"
         ports:
           - 5432:5432
         # Health check to wait until Postgres is ready to accept connections
