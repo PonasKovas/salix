@@ -12,6 +12,7 @@ pub struct UpdateListener {
 }
 
 #[derive(Debug)]
+#[must_use = "destroy subscriber explicitly after being done with it"]
 pub struct UpdateSubscriber {
 	pub messages: Subscriber<Uuid, Message, ChatroomContext>,
 }
