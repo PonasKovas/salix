@@ -1,60 +1,13 @@
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Result, bail, ensure};
+use common::TestOptions;
 use server::{
 	cmd_args::Args, config::Config, database::Database, populate, update_listener::UpdateListener,
 };
 use sqlx::{PgPool, postgres::PgListener};
-use std::{env, path::PathBuf, time::Duration};
+use std::{path::PathBuf, time::Duration};
 use tokio::time::timeout;
 
-struct TestOptions {
-	db_name: String,
-	db_user: Option<String>,
-	db_password: Option<String>,
-	db_socket: String,
-	proxied_db_socket: String,
-	toxiproxy_control_url: String,
-}
-
-impl TestOptions {
-	fn get() -> Result<Self> {
-		fn var(s: &'static str) -> Result<String> {
-			env::var(s).context(s)
-		}
-		Ok(Self {
-			db_name: var("TEST_DB_NAME")?,
-			db_user: var("TEST_DB_USER").ok(),
-			db_password: var("TEST_DB_PASSWORD").ok(),
-			db_socket: var("TEST_DB_SOCKET")?,
-			proxied_db_socket: var("TEST_PROXIED_DB_SOCKET")?,
-			toxiproxy_control_url: var("TEST_TOXIPROXY_CONTROL_URL")?,
-		})
-	}
-	fn db_url(&self, proxied: bool) -> String {
-		let mut db_url = "postgres://".to_owned();
-
-		if let Some(user) = &self.db_user {
-			db_url.push_str(user);
-			if let Some(password) = &self.db_password {
-				db_url.push(':');
-				db_url.push_str(password);
-			}
-
-			db_url.push('@');
-		}
-
-		db_url.push_str(&format!(
-			"{}/{}",
-			if proxied {
-				&self.proxied_db_socket
-			} else {
-				&self.db_socket
-			},
-			self.db_name
-		));
-
-		db_url
-	}
-}
+mod common;
 
 fn config(options: &TestOptions) -> Config {
 	Config {
@@ -199,8 +152,8 @@ impl Toxiproxy {
 			.post(format!("{base_url}/proxies"))
 			.body(serde_json::to_string(&ToxiproxyProxyFields {
 				name: Some(TOXIPROXY_PROXY_NAME),
-				listen: Some(&options.proxied_db_socket),
-				upstream: Some(&options.db_socket),
+				listen: Some(&options.toxiproxy_db_listen_socket),
+				upstream: Some(&options.toxiproxy_db_upstream_socket),
 				..Default::default()
 			})?)
 			.send()
@@ -220,7 +173,7 @@ impl Toxiproxy {
 	}
 	async fn disable(&self) -> Result<()> {
 		self.client
-			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
+			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url,))
 			.body(serde_json::to_string(&ToxiproxyProxyFields {
 				enabled: Some(false),
 				..Default::default()
@@ -233,7 +186,7 @@ impl Toxiproxy {
 	}
 	async fn enable(&self) -> Result<()> {
 		self.client
-			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
+			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url,))
 			.body(serde_json::to_string(&ToxiproxyProxyFields {
 				enabled: Some(true),
 				..Default::default()

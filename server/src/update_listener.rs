@@ -1,8 +1,4 @@
-use crate::{
-	cmd_args::Args,
-	config::Config,
-	database::{Database, message::Message},
-};
+use crate::database::{Database, message::Message};
 use messages::ChatroomContext;
 use sqlx::PgPool;
 use tokio_pubsub::{PublisherHandle, Subscriber};
