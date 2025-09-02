@@ -1,11 +1,13 @@
 use anyhow::Result;
 use server::{cmd_args::Args, config::Config, database::Database, update_listener::UpdateListener};
-use std::path::PathBuf;
+use std::{env::var, path::PathBuf};
 
 fn config() -> Config {
+	let database_url = var("DATABASE_URL").unwrap_or("postgres://localhost:5433/salix".to_owned());
+
 	Config {
 		bind_to: "0.0.0.0:0".parse().unwrap(),
-		database_url: "postgres://localhost:5433/salix".to_owned(),
+		database_url,
 	}
 }
 
@@ -19,10 +21,13 @@ fn args() -> Args {
 
 #[tokio::test]
 async fn msg_listener_seq_id_race_condition() -> Result<()> {
+	let args = args();
+	let config = config();
+
 	let toxiproxy = Toxiproxy::new().await?;
 
-	let db = Database::init(&config(), &args()).await?;
-	let listener = UpdateListener::init(&config(), &args(), &db).await?;
+	let db = Database::init(&config, &args).await?;
+	let listener = UpdateListener::init(&config, &args, &db).await?;
 
 	toxiproxy.disrupt().await?;
 

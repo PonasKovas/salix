@@ -17,6 +17,20 @@ jobs:
         image: ghcr.io/shopify/toxiproxy:2.12.0
         ports:
           - 8474:8474
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: salix
+        ports:
+          - 5432:5432
+        # Health check to wait until Postgres is ready to accept connections
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -25,4 +39,6 @@ jobs:
       - name: Build
         run: cargo build --verbose --workspace
       - name: Run tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/salix
         run: cargo test --verbose --workspace
