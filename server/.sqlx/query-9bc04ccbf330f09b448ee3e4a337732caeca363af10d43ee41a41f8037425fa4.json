@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO active_sessions (token, user_id, expires_at) VALUES ($1, $2, NOW() + ('10 years'::interval)) ON CONFLICT (token) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9bc04ccbf330f09b448ee3e4a337732caeca363af10d43ee41a41f8037425fa4"
+}

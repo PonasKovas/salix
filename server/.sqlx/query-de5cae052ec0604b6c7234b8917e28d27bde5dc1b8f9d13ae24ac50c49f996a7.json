@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO chatrooms (id, name) VALUES ($1, 'test room') ON CONFLICT (id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "de5cae052ec0604b6c7234b8917e28d27bde5dc1b8f9d13ae24ac50c49f996a7"
+}

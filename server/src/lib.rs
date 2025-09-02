@@ -33,7 +33,7 @@ pub async fn main() -> Result<()> {
 
 	if args.populate {
 		info!("Populating database.");
-		return populate::populate(db).await;
+		return populate::populate(&db).await;
 	}
 
 	let state = ServerState {

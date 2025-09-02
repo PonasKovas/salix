@@ -1,16 +1,68 @@
-use anyhow::Result;
-use server::{cmd_args::Args, config::Config, database::Database, update_listener::UpdateListener};
-use std::{env::var, path::PathBuf};
+use anyhow::{Context, Result, bail, ensure};
+use server::{
+	cmd_args::Args, config::Config, database::Database, populate, update_listener::UpdateListener,
+};
+use sqlx::{PgPool, postgres::PgListener};
+use std::{env::var, path::PathBuf, time::Duration};
+use tokio::time::timeout;
 
-fn config() -> Config {
-	let database_url = var("POSTGRES_URL").unwrap_or("postgres://localhost:5433/salix".to_owned());
+struct TestOptions {
+	db_name: String,
+	db_user: Option<String>,
+	db_password: Option<String>,
+	db_host: String,
+	db_port: String,
+	proxied_db_port: String,
+	toxiproxy_control_url: String,
+}
 
-	Config {
-		bind_to: "0.0.0.0:0".parse().unwrap(),
-		database_url,
+impl TestOptions {
+	fn get() -> Result<Self> {
+		Ok(Self {
+			db_name: var("TEST_DB_NAME").context("TEST_DB_NAME")?,
+			db_user: var("TEST_DB_USER").ok(),
+			db_password: var("TEST_DB_PASSWORD").ok(),
+			db_host: var("TEST_DB_HOST").unwrap_or("localhost".to_owned()),
+			db_port: var("TEST_DB_PORT").context("TEST_DB_PORT")?,
+			// proxied db port can be chosen arbitrarily
+			proxied_db_port: var("TEST_PROXIED_DB_PORT").context("TEST_PROXIED_DB_PORT")?,
+			toxiproxy_control_url: var("TEST_TOXIPROXY_CONTROL_URL")
+				.context("TEST_TOXIPROXY_CONTROL_URL")?,
+		})
+	}
+	fn db_url(&self, proxied: bool) -> String {
+		let mut db_url = "postgres://".to_owned();
+
+		if let Some(user) = &self.db_user {
+			db_url.push_str(user);
+			if let Some(password) = &self.db_password {
+				db_url.push(':');
+				db_url.push_str(password);
+			}
+
+			db_url.push('@');
+		}
+		db_url.push_str(&format!(
+			"{}:{}/{}",
+			self.db_host,
+			if proxied {
+				&self.proxied_db_port
+			} else {
+				&self.db_port
+			},
+			self.db_name
+		));
+
+		db_url
 	}
 }
 
+fn config(options: &TestOptions) -> Config {
+	Config {
+		bind_to: "0.0.0.0:0".parse().unwrap(),
+		database_url: options.db_url(false),
+	}
+}
 fn args() -> Args {
 	Args {
 		config: PathBuf::new(),
@@ -21,85 +73,169 @@ fn args() -> Args {
 
 #[tokio::test]
 async fn msg_listener_seq_id_race_condition() -> Result<()> {
+	let options = TestOptions::get()?;
+
 	let args = args();
-	let config = config();
+	let config = config(&options);
 
-	let toxiproxy = Toxiproxy::new().await?;
+	let toxiproxy = Toxiproxy::new(&options).await?;
 
+	// Database::init also migrates automatically
 	let db = Database::init(&config, &args).await?;
-	let listener = UpdateListener::init(&config, &args, &db).await?;
+	let proxied_db = Database::new(PgPool::connect(&options.db_url(true)).await?);
+
+	populate::populate(&db).await?;
+
+	assert_disruption(&toxiproxy, &proxied_db).await?;
+
+	let listener = UpdateListener::init(&config, &args, &proxied_db).await?;
+	let mut subscriber = listener.subscribe().await;
+	subscriber.messages.add_topic(populate::CHAT_ID).await?;
+
+	let mut transaction_a = Database::new(db.begin().await?);
+	let mut transaction_b = Database::new(db.begin().await?);
+
+	// A starts adding a new message first
+	transaction_a
+		.insert_message(populate::CHAT_ID, populate::USER_A_ID, "message A")
+		.await?;
+
+	// B adds a message later
+	transaction_b
+		.insert_message(populate::CHAT_ID, populate::USER_B_ID, "message B")
+		.await?;
+
+	// B commits first
+	transaction_b.inner.commit().await?;
+
+	// then listener connection is disrupted
+	toxiproxy.disable().await?;
+
+	// then A commits
+	transaction_a.inner.commit().await?;
+
+	// after A is commited, listener connection is restored
+	toxiproxy.enable().await?;
+
+	// try to receive the 2 messages with our subscriber
+	for expected_msg in ["message B", "message A"] {
+		match timeout(Duration::from_millis(100), subscriber.messages.recv()).await {
+			Ok(x) => {
+				let (channel, message) = x?;
+
+				ensure!(
+					channel == populate::CHAT_ID,
+					"received message notification from wrong channel? what"
+				);
+
+				let msg = match message {
+					tokio_pubsub::PubSubMessage::Ok(x) => x,
+					tokio_pubsub::PubSubMessage::Lagged(_) => bail!("receiver lagged "),
+				};
+
+				ensure!(msg.message == expected_msg, "wrong order?");
+			}
+			Err(_) => bail!("subscriber recv timed out. A message got permanently lost probably"),
+		}
+	}
+
+	toxiproxy.finish().await?;
+	Ok(())
+}
+
+// assert that disrupting the toxiproxy proxy affects the DB connection
+async fn assert_disruption(toxiproxy: &Toxiproxy, db: &Database<PgPool>) -> Result<()> {
+	let mut listener = PgListener::connect_with(db).await?;
 
 	toxiproxy.disrupt().await?;
 
-	toxiproxy.finish().await?;
+	match timeout(Duration::from_millis(100), listener.try_recv()).await {
+		Ok(x) => match x? {
+			Some(_) => bail!("what?? not even listening to any channel"),
+			None => {} // expected - connection disrupted
+		},
+		Err(_) => bail!("recv timed out. Is the DB connection through toxiproxy?"),
+	}
 
 	Ok(())
 }
 
-const TOXIPROXY_BASE_URL: &str = "http://localhost:8474";
+// TOXIPROXY stuff
+////////////////
+
 const TOXIPROXY_PROXY_NAME: &str = "salix_test_msg_listener_seq_id_race_condition_postgres";
-const TOXIPROXY_PROXY_PORT: u16 = 5433;
 
 struct Toxiproxy {
 	client: reqwest::Client,
+	base_url: String,
+}
+
+#[derive(serde::Serialize, Default)]
+struct ToxiproxyProxyFields<'a> {
+	#[serde(skip_serializing_if = "Option::is_none")]
+	name: Option<&'a str>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	listen: Option<&'a str>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	upstream: Option<&'a str>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	enabled: Option<bool>,
 }
 
 impl Toxiproxy {
-	async fn new() -> Result<Self> {
+	async fn new(options: &TestOptions) -> Result<Self> {
 		let client = reqwest::Client::new();
 
-		#[derive(serde::Serialize)]
-		struct Request<'a> {
-			name: &'a str,
-			listen: &'a str,
-			upstream: &'a str,
-		}
+		let base_url = options.toxiproxy_control_url.clone();
 
 		client
-			.post(format!("{TOXIPROXY_BASE_URL}/proxies"))
-			.body(serde_json::to_string(&Request {
-				name: TOXIPROXY_PROXY_NAME,
-				listen: &format!("localhost:{TOXIPROXY_PROXY_PORT}"),
-				upstream: "localhost:5432",
+			.post(format!("{base_url}/proxies"))
+			.body(serde_json::to_string(&ToxiproxyProxyFields {
+				name: Some(TOXIPROXY_PROXY_NAME),
+				listen: Some(&format!("{}:{}", options.db_host, options.proxied_db_port)),
+				upstream: Some(&format!("{}:{}", options.db_host, options.db_port)),
+				..Default::default()
 			})?)
 			.send()
 			.await?;
 
-		Ok(Self { client })
+		Ok(Self { client, base_url })
 	}
 	async fn finish(self) -> Result<()> {
 		self.client
-			.delete(format!(
-				"{TOXIPROXY_BASE_URL}/proxies/{TOXIPROXY_PROXY_NAME}"
-			))
+			.delete(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
+			.send()
+			.await?;
+
+		Ok(())
+	}
+	async fn disable(&self) -> Result<()> {
+		self.client
+			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
+			.body(serde_json::to_string(&ToxiproxyProxyFields {
+				enabled: Some(false),
+				..Default::default()
+			})?)
+			.send()
+			.await?;
+
+		Ok(())
+	}
+	async fn enable(&self) -> Result<()> {
+		self.client
+			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
+			.body(serde_json::to_string(&ToxiproxyProxyFields {
+				enabled: Some(true),
+				..Default::default()
+			})?)
 			.send()
 			.await?;
 
 		Ok(())
 	}
 	async fn disrupt(&self) -> Result<()> {
-		#[derive(serde::Serialize)]
-		struct Request {
-			enabled: bool,
-		}
-
-		let builder = self.client.post(format!(
-			"{TOXIPROXY_BASE_URL}/proxies/{TOXIPROXY_PROXY_NAME}"
-		));
-
-		builder
-			.try_clone()
-			.unwrap()
-			.body(serde_json::to_string(&Request { enabled: false })?)
-			.send()
-			.await?;
-
-		builder
-			.try_clone()
-			.unwrap()
-			.body(serde_json::to_string(&Request { enabled: true })?)
-			.send()
-			.await?;
+		self.disable().await?;
+		self.enable().await?;
 
 		Ok(())
 	}

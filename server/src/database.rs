@@ -1,5 +1,5 @@
 use crate::{cmd_args::Args, config::Config};
-use sqlx::{Executor, PgPool, Postgres, postgres::PgListener};
+use sqlx::{Executor, PgConnection, PgPool, Postgres, Transaction, postgres::PgListener};
 use std::ops::{Deref, DerefMut};
 
 pub mod active_sessions;
@@ -59,10 +59,27 @@ impl ExecutorHack for PgPool {
 		self
 	}
 }
+impl ExecutorHack for PgConnection {
+	type Executor<'a> = &'a mut PgConnection;
+
+	fn as_executor<'a>(&'a mut self) -> Self::Executor<'a> {
+		self
+	}
+}
 impl ExecutorHack for PgListener {
 	type Executor<'a> = &'a mut PgListener;
 
 	fn as_executor<'a>(&'a mut self) -> Self::Executor<'a> {
 		self
+	}
+}
+impl<'c> ExecutorHack for Transaction<'c, Postgres> {
+	type Executor<'a>
+		= &'a mut PgConnection
+	where
+		'c: 'a;
+
+	fn as_executor<'a>(&'a mut self) -> Self::Executor<'a> {
+		self.as_mut()
 	}
 }
