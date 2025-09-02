@@ -1,6 +1,6 @@
 use crate::database::{Database, message::Message};
 use ahash::{HashMap, HashMapExt};
-use anyhow::bail;
+use anyhow::{Context, bail};
 use chrono::{DateTime, Local};
 use futures::StreamExt;
 use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
@@ -86,7 +86,7 @@ impl MessagesListener {
 					driver.finish(Reactor(&mut self)).await?;
 				},
 				notification = self.db.try_recv() => {
-					self.handle_notification(&mut publisher, notification?).await?;
+					self.handle_notification(&mut publisher, notification?).await.context("handle notification")?;
 				}
 			}
 		}
@@ -100,7 +100,9 @@ impl MessagesListener {
 			Some(x) => x,
 			None => {
 				// disrupted connection, fetch all messages since last received and continue
-				self.on_db_conn_disruption(publisher).await?;
+				self.on_db_conn_disruption(publisher)
+					.await
+					.context("handle conn disruption")?;
 
 				return Ok(());
 			}
