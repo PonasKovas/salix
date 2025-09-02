@@ -40,6 +40,10 @@ jobs:
         run: cargo build --verbose --workspace
       - name: Run tests
         env:
-          TEST_DB_URL: postgres://postgres:postgres@localhost:5432/salix
-          TEST_PROXIED_DB_URL: postgres://postgres:postgres@localhost:5433/salix
+          TEST_DB_NAME: salix
+          TEST_DB_USER: postgres
+          TEST_DB_PASSWORD: postgres
+          TEST_DB_PORT: 5432
+          TEST_PROXIED_DB_PORT: 5433
+          TEST_TOXIPROXY_CONTROL_URL: http://localhost:8474
         run: cargo test --verbose --workspace
