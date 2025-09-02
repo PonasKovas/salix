@@ -1,12 +1,11 @@
 use anyhow::{Result, bail, ensure};
 use common::TestOptions;
 use server::{
-	cmd_args::Args, config::Config, database::Database, logging::init_logging, populate,
-	update_listener::UpdateListener,
+	cmd_args::Args, config::Config, database::Database, populate, update_listener::UpdateListener,
 };
 use sqlx::{PgPool, postgres::PgListener};
 use std::{path::PathBuf, time::Duration};
-use tokio::time::timeout;
+use tokio::time::{sleep, timeout};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
@@ -57,6 +56,8 @@ async fn msg_listener_seq_id_race_condition() -> Result<()> {
 	let listener = UpdateListener::init(&proxied_db).await?;
 	let mut subscriber = listener.subscribe().await;
 	subscriber.messages.add_topic(populate::CHAT_ID).await?;
+
+	sleep(Duration::from_millis(10)).await;
 
 	let mut transaction_a = Database::new(db.begin().await?);
 	let mut transaction_b = Database::new(db.begin().await?);
@@ -187,7 +188,7 @@ impl Toxiproxy {
 	}
 	async fn disable(&self) -> Result<()> {
 		self.client
-			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url,))
+			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
 			.body(serde_json::to_string(&ToxiproxyProxyFields {
 				enabled: Some(false),
 				..Default::default()
@@ -200,7 +201,7 @@ impl Toxiproxy {
 	}
 	async fn enable(&self) -> Result<()> {
 		self.client
-			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url,))
+			.post(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
 			.body(serde_json::to_string(&ToxiproxyProxyFields {
 				enabled: Some(true),
 				..Default::default()

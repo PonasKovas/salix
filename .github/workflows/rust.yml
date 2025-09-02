@@ -47,6 +47,6 @@ jobs:
           TEST_DB_SOCKET: localhost:5432
           TEST_PROXIED_DB_SOCKET: localhost:5433
           TEST_TOXIPROXY_CONTROL_URL: http://localhost:8474
-          TEST_TOXIPROXY_DB_LISTEN_SOCKET: localhost:5433
+          TEST_TOXIPROXY_DB_LISTEN_SOCKET: 0.0.0.0:5433
           TEST_TOXIPROXY_DB_UPSTREAM_SOCKET: postgres:5432
         run: cargo test --verbose --workspace
