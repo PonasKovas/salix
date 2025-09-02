@@ -2076,7 +2076,7 @@ dependencies = [
 [[package]]
 name = "sqlx"
 version = "0.9.0-alpha.1"
-source = "git+https://github.com/PonasKovas/sqlx.git#40e5883877da898cef0ece99c9e5ee0ede3b58c8"
+source = "git+https://github.com/PonasKovas/sqlx.git?branch=debug#59e3ca5af93a3b4cc2baf4cc141ae00081f594ad"
 dependencies = [
  "sqlx-core",
  "sqlx-macros",
@@ -2088,7 +2088,7 @@ dependencies = [
 [[package]]
 name = "sqlx-core"
 version = "0.9.0-alpha.1"
-source = "git+https://github.com/PonasKovas/sqlx.git#40e5883877da898cef0ece99c9e5ee0ede3b58c8"
+source = "git+https://github.com/PonasKovas/sqlx.git?branch=debug#59e3ca5af93a3b4cc2baf4cc141ae00081f594ad"
 dependencies = [
  "base64",
  "bytes",
@@ -2122,7 +2122,7 @@ dependencies = [
 [[package]]
 name = "sqlx-macros"
 version = "0.9.0-alpha.1"
-source = "git+https://github.com/PonasKovas/sqlx.git#40e5883877da898cef0ece99c9e5ee0ede3b58c8"
+source = "git+https://github.com/PonasKovas/sqlx.git?branch=debug#59e3ca5af93a3b4cc2baf4cc141ae00081f594ad"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2134,7 +2134,7 @@ dependencies = [
 [[package]]
 name = "sqlx-macros-core"
 version = "0.9.0-alpha.1"
-source = "git+https://github.com/PonasKovas/sqlx.git#40e5883877da898cef0ece99c9e5ee0ede3b58c8"
+source = "git+https://github.com/PonasKovas/sqlx.git?branch=debug#59e3ca5af93a3b4cc2baf4cc141ae00081f594ad"
 dependencies = [
  "dotenvy",
  "either",
@@ -2157,7 +2157,7 @@ dependencies = [
 [[package]]
 name = "sqlx-mysql"
 version = "0.9.0-alpha.1"
-source = "git+https://github.com/PonasKovas/sqlx.git#40e5883877da898cef0ece99c9e5ee0ede3b58c8"
+source = "git+https://github.com/PonasKovas/sqlx.git?branch=debug#59e3ca5af93a3b4cc2baf4cc141ae00081f594ad"
 dependencies = [
  "atoi",
  "base64",
@@ -2199,7 +2199,7 @@ dependencies = [
 [[package]]
 name = "sqlx-postgres"
 version = "0.9.0-alpha.1"
-source = "git+https://github.com/PonasKovas/sqlx.git#40e5883877da898cef0ece99c9e5ee0ede3b58c8"
+source = "git+https://github.com/PonasKovas/sqlx.git?branch=debug#59e3ca5af93a3b4cc2baf4cc141ae00081f594ad"
 dependencies = [
  "atoi",
  "base64",
@@ -2236,7 +2236,7 @@ dependencies = [
 [[package]]
 name = "sqlx-sqlite"
 version = "0.9.0-alpha.1"
-source = "git+https://github.com/PonasKovas/sqlx.git#40e5883877da898cef0ece99c9e5ee0ede3b58c8"
+source = "git+https://github.com/PonasKovas/sqlx.git?branch=debug#59e3ca5af93a3b4cc2baf4cc141ae00081f594ad"
 dependencies = [
  "atoi",
  "chrono",

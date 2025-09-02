@@ -46,7 +46,7 @@ pub async fn start(
 	let messages_listener = MessagesListener::new(db).await?;
 	spawn(async move {
 		if let Err(e) = messages_listener.run(publisher).await {
-			error!("{e:?}\n{}", e.backtrace());
+			error!("{e:?}");
 		}
 	});
 

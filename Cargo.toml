@@ -15,7 +15,7 @@ futures = "0.3.31"
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 axum = "0.8.4"
 # sqlx = "0.8.6"
-sqlx = { git = "https://github.com/PonasKovas/sqlx.git" }
+sqlx = { git = "https://github.com/PonasKovas/sqlx.git", branch = "debug" }
 uuid = "1.17.0"
 tokio-tungstenite = "0.27.0"
 tracing = "0.1.41"
