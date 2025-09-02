@@ -5,7 +5,7 @@ use server::{
 };
 use sqlx::{PgPool, postgres::PgListener};
 use std::{path::PathBuf, time::Duration};
-use tokio::time::{sleep, timeout};
+use tokio::time::timeout;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
@@ -56,8 +56,6 @@ async fn msg_listener_seq_id_race_condition() -> Result<()> {
 	let listener = UpdateListener::init(&proxied_db).await?;
 	let mut subscriber = listener.subscribe().await;
 	subscriber.messages.add_topic(populate::CHAT_ID).await?;
-
-	sleep(Duration::from_millis(10)).await;
 
 	let mut transaction_a = Database::new(db.begin().await?);
 	let mut transaction_b = Database::new(db.begin().await?);
