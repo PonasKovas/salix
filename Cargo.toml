@@ -12,7 +12,7 @@ bitcode = "0.6.6"
 tokio = "1.47.1"
 thiserror = "2.0.14"
 futures = "0.3.31"
-anyhow = "1.0.98"
+anyhow = { version = "1.0.98", features = ["backtrace"] }
 axum = "0.8.4"
 # sqlx = "0.8.6"
 sqlx = { git = "https://github.com/PonasKovas/sqlx.git" }
