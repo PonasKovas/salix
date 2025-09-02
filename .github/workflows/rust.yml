@@ -38,9 +38,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
       - name: Build
+        env:
+          RUST_BACKTRACE: 1
         run: cargo build --verbose --workspace
       - name: Run tests
         env:
+          RUST_BACKTRACE: 1
           TEST_DB_NAME: salix
           TEST_DB_USER: postgres
           TEST_DB_PASSWORD: postgres
