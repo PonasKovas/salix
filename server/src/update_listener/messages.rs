@@ -256,8 +256,9 @@ pub fn find_smallest_gap<const N: usize>(rb: &ConstGenericRingBuffer<i64, N>) ->
 	let mut buf = [0i64; N];
 	let buf = &mut buf[..len];
 
-	rb.copy_to_slice(N - len, buf);
-
+	for (i, elem) in rb.iter().enumerate() {
+		buf[i] = *elem;
+	}
 	buf.sort_unstable();
 
 	for pair in buf.windows(2) {
