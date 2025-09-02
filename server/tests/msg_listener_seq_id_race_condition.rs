@@ -54,6 +54,8 @@ async fn msg_listener_seq_id_race_condition() -> Result<()> {
 
 	assert_disruption(&toxiproxy, &proxied_db).await?;
 
+	eprintln!("disruption asserted");
+
 	let listener = UpdateListener::init(&proxied_db).await?;
 	let mut subscriber = listener.subscribe().await;
 	subscriber.messages.add_topic(populate::CHAT_ID).await?;
