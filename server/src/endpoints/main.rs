@@ -7,7 +7,6 @@ use axum::{
 	http::StatusCode,
 	response::IntoResponse,
 };
-use futures::StreamExt;
 use protocol::C2S;
 use protocol::c2s::Authenticate;
 use protocol::s2c::{self, UserInfo};
