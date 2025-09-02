@@ -3,31 +3,30 @@ use server::{
 	cmd_args::Args, config::Config, database::Database, populate, update_listener::UpdateListener,
 };
 use sqlx::{PgPool, postgres::PgListener};
-use std::{env::var, path::PathBuf, time::Duration};
+use std::{env, path::PathBuf, time::Duration};
 use tokio::time::timeout;
 
 struct TestOptions {
 	db_name: String,
 	db_user: Option<String>,
 	db_password: Option<String>,
-	db_host: String,
-	db_port: String,
-	proxied_db_port: String,
+	db_socket: String,
+	proxied_db_socket: String,
 	toxiproxy_control_url: String,
 }
 
 impl TestOptions {
 	fn get() -> Result<Self> {
+		fn var(s: &'static str) -> Result<String> {
+			env::var(s).context(s)
+		}
 		Ok(Self {
-			db_name: var("TEST_DB_NAME").context("TEST_DB_NAME")?,
+			db_name: var("TEST_DB_NAME")?,
 			db_user: var("TEST_DB_USER").ok(),
 			db_password: var("TEST_DB_PASSWORD").ok(),
-			db_host: var("TEST_DB_HOST").unwrap_or("localhost".to_owned()),
-			db_port: var("TEST_DB_PORT").context("TEST_DB_PORT")?,
-			// proxied db port can be chosen arbitrarily
-			proxied_db_port: var("TEST_PROXIED_DB_PORT").context("TEST_PROXIED_DB_PORT")?,
-			toxiproxy_control_url: var("TEST_TOXIPROXY_CONTROL_URL")
-				.context("TEST_TOXIPROXY_CONTROL_URL")?,
+			db_socket: var("TEST_DB_SOCKET")?,
+			proxied_db_socket: var("TEST_PROXIED_DB_SOCKET")?,
+			toxiproxy_control_url: var("TEST_TOXIPROXY_CONTROL_URL")?,
 		})
 	}
 	fn db_url(&self, proxied: bool) -> String {
@@ -44,12 +43,11 @@ impl TestOptions {
 		}
 
 		db_url.push_str(&format!(
-			"{}:{}/{}",
-			self.db_host,
+			"{}/{}",
 			if proxied {
-				&self.proxied_db_port
+				&self.proxied_db_socket
 			} else {
-				&self.db_port
+				&self.db_socket
 			},
 			self.db_name
 		));
@@ -191,16 +189,23 @@ impl Toxiproxy {
 
 		let base_url = options.toxiproxy_control_url.clone();
 
+		// first cleanup if there was already a proxy with that name
+		client
+			.delete(format!("{base_url}/proxies/{TOXIPROXY_PROXY_NAME}"))
+			.send()
+			.await?;
+
 		client
 			.post(format!("{base_url}/proxies"))
 			.body(serde_json::to_string(&ToxiproxyProxyFields {
 				name: Some(TOXIPROXY_PROXY_NAME),
-				listen: Some(&format!("{}:{}", options.db_host, options.proxied_db_port)),
-				upstream: Some(&format!("{}:{}", options.db_host, options.db_port)),
+				listen: Some(&options.proxied_db_socket),
+				upstream: Some(&options.db_socket),
 				..Default::default()
 			})?)
 			.send()
-			.await?;
+			.await?
+			.error_for_status()?;
 
 		Ok(Self { client, base_url })
 	}
@@ -208,7 +213,8 @@ impl Toxiproxy {
 		self.client
 			.delete(format!("{}/proxies/{TOXIPROXY_PROXY_NAME}", self.base_url))
 			.send()
-			.await?;
+			.await?
+			.error_for_status()?;
 
 		Ok(())
 	}
@@ -220,7 +226,8 @@ impl Toxiproxy {
 				..Default::default()
 			})?)
 			.send()
-			.await?;
+			.await?
+			.error_for_status()?;
 
 		Ok(())
 	}
@@ -232,7 +239,8 @@ impl Toxiproxy {
 				..Default::default()
 			})?)
 			.send()
-			.await?;
+			.await?
+			.error_for_status()?;
 
 		Ok(())
 	}

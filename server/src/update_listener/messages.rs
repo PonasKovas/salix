@@ -25,8 +25,8 @@ type MessagesPublisher = Publisher<Uuid, Message, ChatroomContext>;
 struct ChatroomState {
 	// will stop listening when it reaches 0
 	listeners_n: u32,
-	// 16 is chosen arbitrarily, should be good enough
-	last_received_seq_ids: ConstGenericRingBuffer<i64, 16>,
+	// 128 is chosen arbitrarily, should be more than good enough
+	last_received_seq_ids: ConstGenericRingBuffer<i64, 128>,
 }
 
 pub struct ChatroomContext {
