@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, sequence_id, user_id, message, sent_at\n\t\t\tFROM messages\n\t\t\tWHERE\n\t            ($1::BIGINT IS NULL OR sequence_id >= $1)\n\t        AND\n\t            ($2::BIGINT IS NULL OR sequence_id <= $2)\n\t        ORDER BY sequence_id ASC",
+  "query": "SELECT id, chatroom, sequence_id, user_id, message, sent_at\n\t\t\tFROM messages\n\t\t\tWHERE\n\t\t\t\tchatroom = $3\n\t\t\tAND\n\t            ($1::BIGINT IS NULL OR sequence_id >= $1)\n\t        AND\n\t            ($2::BIGINT IS NULL OR sequence_id <= $2)\n\t        ORDER BY sequence_id ASC",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "chatroom",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "messages",
+            "name": "chatroom"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "sequence_id",
         "type_info": "Int8",
         "origin": {
@@ -26,7 +37,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "user_id",
         "type_info": "Uuid",
         "origin": {
@@ -37,7 +48,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "message",
         "type_info": "Text",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "sent_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -62,7 +73,8 @@
     "parameters": {
       "Left": [
         "Int8",
-        "Int8"
+        "Int8",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -70,8 +82,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "a521da073ea43fa64a3b62eb1d3bbc48a1e753594f8917c7da59833a6d6719a9"
+  "hash": "c3568c97340480b5ffca6906d7eeb89c7ff1a76e6ee3e6271a051c19fee80e22"
 }
