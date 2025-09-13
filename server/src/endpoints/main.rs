@@ -129,8 +129,7 @@ async fn handle_socket(server: &mut ServerState, socket: &mut Socket<'_>) -> Res
 
 	state
 		.update_subscriber
-		.messages
-		.add_topic(Uuid::from_u128(5))
+		.subscribe_chat(Uuid::from_u128(5))
 		.await
 		.unwrap();
 	loop {
@@ -147,22 +146,15 @@ async fn next_event(
 		packet = socket.recv() => {
 			handle_packet(server, state, socket, packet?).await?;
 		}
-		msg = state.update_subscriber.messages.recv() => {
-			let (chat_id, msg) = msg.context("new msg listener task dropped?")?;
+		msg = state.update_subscriber.recv_chat_messages() => {
+			let (chat_id, msg) = msg?;
 
-			match msg {
-				PubSubMessage::Lagged(missed) => {
-					// todo fetch missed messages
-				}
-				PubSubMessage::Ok(msg) => {
-					state.last_msg_seq_id = Some(msg.sequence_id);
+			state.last_msg_seq_id = Some(msg.sequence_id);
 
-					socket.send_packet(s2c::NewMessage{
-						user: msg.user_id.to_string(),
-						message: msg.message.clone(),
-					}).await?;
-				}
-			}
+			socket.send_packet(s2c::NewMessage{
+				user: msg.user_id.to_string(),
+				message: msg.message.clone(),
+			}).await?;
 		},
 	}
 
@@ -185,48 +177,4 @@ async fn handle_packet(
 	}
 
 	Ok(())
-}
-
-enum NewMsgListenerUpdate {
-	NewMsg(Uuid),
-	// sent when the connection to the db was interrupted and there may be missed messages
-	Disconnect,
-}
-
-async fn new_msg_listener(
-	server: &ServerState,
-) -> Result<Receiver<NewMsgListenerUpdate>, sqlx::Error> {
-	let mut new_msg_listener = PgListener::connect_with(&server.db).await?;
-	new_msg_listener.listen("chat").await?;
-
-	let (sender, receiver) = channel(5);
-
-	tokio::spawn(async move {
-		loop {
-			match new_msg_listener.try_recv().await {
-				Ok(Some(notification)) => {
-					let uuid = notification.payload().parse().unwrap();
-					if sender
-						.send(NewMsgListenerUpdate::NewMsg(uuid))
-						.await
-						.is_err()
-					{
-						break;
-					}
-				}
-				// None is returned when the connection is interrupted
-				Ok(None) => {
-					if sender.send(NewMsgListenerUpdate::Disconnect).await.is_err() {
-						break;
-					}
-				}
-				Err(e) => {
-					error!("listening to notify updates: {e}");
-					break;
-				}
-			}
-		}
-	});
-
-	Ok(receiver)
 }
