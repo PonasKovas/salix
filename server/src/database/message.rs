@@ -10,6 +10,7 @@ use uuid::Uuid;
 #[derive(Clone, Debug)]
 pub struct Message {
 	pub id: Uuid,
+	pub chatroom: Uuid,
 	pub sequence_id: i64,
 	pub user_id: Uuid,
 	pub message: String,
@@ -20,7 +21,7 @@ impl<D: ExecutorHack> Database<D> {
 	pub async fn message_by_id(&mut self, id: Uuid) -> sqlx::Result<Option<Message>> {
 		sqlx::query_as!(
 			Message,
-			r#"SELECT id, sequence_id, user_id, message, sent_at
+			r#"SELECT id, chatroom, sequence_id, user_id, message, sent_at
 			FROM messages
 			WHERE id = $1"#,
 			id,
@@ -30,6 +31,7 @@ impl<D: ExecutorHack> Database<D> {
 	}
 	pub fn messages_by_seq_id(
 		&mut self,
+		chatroom_id: &Uuid,
 		seq_range: impl RangeBounds<i64>,
 	) -> Pin<Box<dyn Stream<Item = sqlx::Result<Message>> + Send + '_>> {
 		let start = match seq_range.start_bound() {
@@ -45,15 +47,18 @@ impl<D: ExecutorHack> Database<D> {
 
 		sqlx::query_as!(
 			Message,
-			r#"SELECT id, sequence_id, user_id, message, sent_at
+			r#"SELECT id, chatroom, sequence_id, user_id, message, sent_at
 			FROM messages
 			WHERE
+				chatroom = $3
+			AND
 	            ($1::BIGINT IS NULL OR sequence_id >= $1)
 	        AND
 	            ($2::BIGINT IS NULL OR sequence_id <= $2)
 	        ORDER BY sequence_id ASC"#,
 			start,
-			end
+			end,
+			chatroom_id
 		)
 		.fetch(self.as_executor())
 	}

@@ -131,6 +131,7 @@ impl MessagesListener {
 		if let Some(message) = payload.message {
 			new_message = Message {
 				id: payload.id,
+				chatroom: chat_id,
 				sequence_id: payload.sequence_id,
 				user_id: payload.user_id,
 				message,
@@ -158,7 +159,7 @@ impl MessagesListener {
 		for (chat_id, chatroom) in &mut self.chatrooms {
 			let fetch_since = chatroom.last_received_seq_id;
 
-			let mut msg_stream = self.db.messages_by_seq_id(fetch_since..);
+			let mut msg_stream = self.db.messages_by_seq_id(chat_id, fetch_since..);
 
 			while let Some(msg) = msg_stream.next().await {
 				let msg = msg?;

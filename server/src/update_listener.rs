@@ -23,7 +23,7 @@ pub struct UpdateSubscriber {
 
 	messages: Subscriber<Uuid, Message, ChatroomContext>,
 	messages_last_seq_ids: BTreeMap<Uuid, i64>,
-	messages_buffer: VecDeque<(Uuid, Arc<Message>)>,
+	messages_buffer: VecDeque<Arc<Message>>,
 }
 
 impl UpdateListener {
@@ -45,7 +45,7 @@ impl UpdateListener {
 }
 
 impl UpdateSubscriber {
-	pub async fn recv_chat_messages(&mut self) -> sqlx::Result<(Uuid, Arc<Message>)> {
+	pub async fn recv_chat_messages(&mut self) -> sqlx::Result<Arc<Message>> {
 		if let Some(msg) = self.messages_buffer.pop_front() {
 			return Ok(msg);
 		}
@@ -63,13 +63,15 @@ impl UpdateSubscriber {
 				let fetch_to = fetch_since + n as i64;
 
 				{
-					let mut stream = self.database.messages_by_seq_id(fetch_since..fetch_to);
+					let mut stream = self
+						.database
+						.messages_by_seq_id(&chat_id, fetch_since..fetch_to);
 
 					while let Some(msg) = stream.next().await {
 						let msg = msg?;
 
 						*last_seq_id = msg.sequence_id;
-						self.messages_buffer.push_back((chat_id, Arc::new(msg)));
+						self.messages_buffer.push_back(Arc::new(msg));
 					}
 				}
 
@@ -77,9 +79,11 @@ impl UpdateSubscriber {
 			}
 		};
 
+		assert_eq!(chat_id, msg.chatroom);
+
 		*self.messages_last_seq_ids.get_mut(&chat_id).unwrap() = msg.sequence_id;
 
-		Ok((chat_id, msg))
+		Ok(msg)
 	}
 	pub async fn subscribe_chat(
 		&mut self,

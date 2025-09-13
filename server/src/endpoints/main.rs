@@ -147,7 +147,7 @@ async fn next_event(
 			handle_packet(server, state, socket, packet?).await?;
 		}
 		msg = state.update_subscriber.recv_chat_messages() => {
-			let (chat_id, msg) = msg?;
+			let msg = msg?;
 
 			state.last_msg_seq_id = Some(msg.sequence_id);
 
