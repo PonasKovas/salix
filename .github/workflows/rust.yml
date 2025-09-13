@@ -12,26 +12,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    services:
-      toxiproxy:
-        image: ghcr.io/shopify/toxiproxy:2.12.0
-        ports:
-          - 8474:8474
-          - 5433:5433
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: salix
-        ports:
-          - 5432:5432
-        # Health check to wait until Postgres is ready to accept connections
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -44,12 +24,4 @@ jobs:
       - name: Run tests
         env:
           RUST_BACKTRACE: 1
-          TEST_DB_NAME: salix
-          TEST_DB_USER: postgres
-          TEST_DB_PASSWORD: postgres
-          TEST_DB_SOCKET: localhost:5432
-          TEST_PROXIED_DB_SOCKET: localhost:5433
-          TEST_TOXIPROXY_CONTROL_URL: http://localhost:8474
-          TEST_TOXIPROXY_DB_LISTEN_SOCKET: 0.0.0.0:5433
-          TEST_TOXIPROXY_DB_UPSTREAM_SOCKET: postgres:5432
         run: cargo test --verbose --workspace

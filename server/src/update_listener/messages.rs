@@ -3,7 +3,6 @@ use ahash::{HashMap, HashMapExt};
 use anyhow::{Context, bail};
 use chrono::{DateTime, Local};
 use futures::StreamExt;
-use ringbuffer::{ConstGenericRingBuffer, RingBuffer};
 use serde::Deserialize;
 use sqlx::{
 	PgPool,
@@ -25,15 +24,13 @@ type MessagesPublisher = Publisher<Uuid, Message, ChatroomContext>;
 struct ChatroomState {
 	// will stop listening when it reaches 0
 	listeners_n: u32,
-	// 128 is chosen arbitrarily, should be more than good enough
-	last_received_seq_ids: ConstGenericRingBuffer<i64, 128>,
+	// the sequential ID of the last received message
+	last_received_seq_id: i64,
 }
 
 pub struct ChatroomContext {
-	/// guarantees that any messages AFTER this seq id will be
+	/// guarantees that all messages AFTER this seq id will be
 	/// delivered as long as you keep listening
-	/// But there is no guarantee that messages BEFORE this seq id will NOT be delivered.
-	/// in simple terms: you will get ALL messages AFTER this id, and you MAY get messages BEFORE this id too.
 	pub last_message_seq_id: i64,
 }
 
@@ -147,8 +144,7 @@ impl MessagesListener {
 		self.chatrooms
 			.get_mut(&chat_id)
 			.unwrap()
-			.last_received_seq_ids
-			.enqueue(payload.sequence_id);
+			.last_received_seq_id = payload.sequence_id;
 
 		publisher.publish(&chat_id, new_message).unwrap();
 
@@ -160,37 +156,14 @@ impl MessagesListener {
 		publisher: &mut MessagesPublisher,
 	) -> sqlx::Result<()> {
 		for (chat_id, chatroom) in &mut self.chatrooms {
-			// the basic idea here is that normally all new messages are added with their sequential IDs
-			// increasing, so if theres a disruption you can just fetch all messages since the one you last read.
-			//
-			// but there is a scenario when a bigger SEQ ID might be received before a smaller one:
-			// Say 2 messages A and B are being added at around the same time:
-			// 1. A transaction start, the sequential ID is generated (say 101)
-			// 2. B transaction start, sequential ID = 102
-			// 3. B transaction commit, a notification is sent with sequential ID = 102
-			// 4. A transaction commit
-			//
-			// In this scenario, if our server happens to disconnect between step 3 and 4,
-			// we would only fetch new messages since B (102) and completely miss A (101)
-			//
-			// In order to handle this correctly, we keep a small list of last received sequential IDs
-			// and assume that any gap in it might be still received later (gaps can appear for other reasons too,
-			// like rolled back transactions, so we cant assume that all gaps will be filled in later).
-			let fetch_since = find_smallest_gap(&chatroom.last_received_seq_ids)
-				// if no gap, just fetch since the last received msg
-				.unwrap_or(*chatroom.last_received_seq_ids.back().unwrap());
+			let fetch_since = chatroom.last_received_seq_id;
 
 			let mut msg_stream = self.db.messages_by_seq_id(fetch_since..);
 
 			while let Some(msg) = msg_stream.next().await {
 				let msg = msg?;
 
-				// dont publish the same message twice
-				if chatroom.last_received_seq_ids.contains(&msg.sequence_id) {
-					continue;
-				}
-
-				chatroom.last_received_seq_ids.enqueue(msg.sequence_id);
+				chatroom.last_received_seq_id = msg.sequence_id;
 				publisher.publish(chat_id, msg).unwrap();
 			}
 		}
@@ -209,7 +182,7 @@ impl MessagesListener {
 		chatroom_data.listeners_n += 1;
 
 		Ok(ChatroomContext {
-			last_message_seq_id: *chatroom_data.last_received_seq_ids.back().unwrap(),
+			last_message_seq_id: chatroom_data.last_received_seq_id,
 		})
 	}
 	async fn on_unsubscribe(&mut self, topic: &Uuid) -> Result<(), sqlx::Error> {
@@ -244,30 +217,6 @@ async fn start_chat_listen(
 
 	Ok(ChatroomState {
 		listeners_n: 0,
-		last_received_seq_ids: ConstGenericRingBuffer::from([last_seq_id].as_slice()),
+		last_received_seq_id: last_seq_id,
 	})
-}
-
-/// finds the smallest integer that is missing from the ring buffer (but there are both bigger and smaller integers)
-pub fn find_smallest_gap<const N: usize>(rb: &ConstGenericRingBuffer<i64, N>) -> Option<i64> {
-	let len = rb.len();
-	if len < 2 {
-		return None;
-	}
-
-	let mut buf = [0i64; N];
-	let buf = &mut buf[..len];
-
-	for (i, elem) in rb.iter().enumerate() {
-		buf[i] = *elem;
-	}
-	buf.sort_unstable();
-
-	for pair in buf.windows(2) {
-		if pair[0] + 1 < pair[1] {
-			return Some(pair[0] + 1);
-		}
-	}
-
-	None
 }
