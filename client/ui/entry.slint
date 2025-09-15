@@ -1,5 +1,5 @@
-import { Palette, Text, LineEdit } from "palette.slint";
-import { Button } from "widgets.slint";
+import { Palette } from "palette.slint";
+import { Button, Text, LineEdit } from "widgets.slint";
 
 export component EntryWindow inherits Window {
     in property <string> build-info: "v0.0";
@@ -34,9 +34,8 @@ export component EntryWindow inherits Window {
                 spacing: 10px;
 
                 Text {
-                    text: "login";
-                    font-weight: 600;
-                    horizontal-alignment: center;
+                    text: "Login";
+                    horizontal-alignment: left;
                 }
                 LineEdit {
                     placeholder-text: "username";
@@ -70,13 +69,11 @@ export component EntryWindow inherits Window {
                 spacing: 10px;
 
                 Text {
-                    text: "new account";
-                    font-weight: 600;
-                    horizontal-alignment: center;
+                    text: "New account";
+                    horizontal-alignment: left;
                 }
                 LineEdit {
                     placeholder-text: "username";
-                    init => { self.focus() }
                 }
                 LineEdit {
                     placeholder-text: "password";
