@@ -1,3 +1,6 @@
+// Prevent console window in Windows release builds
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use anyhow::{Context, Result};
 use protocol::{
 	S2C,
@@ -10,9 +13,12 @@ use tokio_tungstenite::connect_async;
 use uuid::Uuid;
 
 mod protocol_util;
+mod ui;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+	ui::main_ui()?;
+
 	let token: Uuid = std::env::var("AUTH_TOKEN")?.parse()?;
 
 	let (mut ws_stream, _) = connect_async("ws://127.0.0.1:3000/v1").await?;

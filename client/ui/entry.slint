@@ -1,0 +1,101 @@
+import { Palette, Text, LineEdit } from "palette.slint";
+import { Button } from "widgets.slint";
+
+export component EntryWindow inherits Window {
+    in property <string> build-info: "v0.0";
+
+    title: "Salix";
+    width: 400px;
+    background: Palette.background1;
+
+    VerticalLayout {
+        padding: 15px;
+        alignment: start;
+        spacing: 20px;
+
+        Text {
+            text: "salix";
+            font-size: 50px;
+            font-weight: 800;
+            color: Palette.accent;
+            horizontal-alignment: center;
+            vertical-stretch: 0;
+        }
+
+        // login panel
+        Rectangle {
+            background: Palette.background2;
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                padding: 7px;
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 10px;
+
+                Text {
+                    text: "login";
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+                LineEdit {
+                    placeholder-text: "username";
+                    init => { self.focus() }
+                }
+                LineEdit {
+                    placeholder-text: "password";
+                    input-type: password;
+                }
+                Button {
+                    text: "login";
+                }
+            }
+        }
+
+        Text {
+            text: "or";
+            font-weight: 600;
+            horizontal-alignment: center;
+        }
+
+        // register panel
+        Rectangle {
+            background: Palette.background2;
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                padding: 7px;
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 10px;
+
+                Text {
+                    text: "new account";
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+                LineEdit {
+                    placeholder-text: "username";
+                    init => { self.focus() }
+                }
+                LineEdit {
+                    placeholder-text: "password";
+                    input-type: password;
+                }
+                LineEdit {
+                    placeholder-text: "password";
+                    input-type: password;
+                }
+                Button {
+                    text: "create";
+                }
+            }
+        }
+
+        Text {
+            text: root.build-info;
+            color: Palette.text2;
+            horizontal-alignment: right;
+        }
+    }
+}

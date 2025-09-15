@@ -11,3 +11,7 @@ futures.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
 thiserror.workspace = true
+slint.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true

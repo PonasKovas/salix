@@ -1,0 +1,17 @@
+import { LineEdit } from "std-widgets.slint";
+
+export global Palette  {
+    in-out property<color> background1: #1A1D1A;
+    in-out property<color> background2: #242824;
+    in-out property<color> accent: #73AB84;
+    in-out property<color> text1: #E4E6EB;
+    in-out property<color> text2: #A8B3A8;
+}
+
+export component Text inherits Text {
+    color: Palette.text1;
+}
+
+export component LineEdit inherits LineEdit {
+    height: 25px;
+}

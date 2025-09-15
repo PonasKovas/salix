@@ -1,0 +1,64 @@
+import { Palette } from "../palette.slint";
+import { Animation } from "_animation.slint";
+
+export component Button inherits TouchArea {
+    in property <string> text;
+
+    // for animating the underline on clicks
+    property <duration> animation_stage1: 150ms;
+    property <duration> animation_stage2: 1000ms;
+    property <duration> animation_duration: animation_stage1 + animation_stage2;
+    animation := Animation {
+        duration: animation_duration;
+    }
+    changed pressed => {
+    	if self.pressed {
+    		animation.run();
+    	}
+    }
+
+    rect := Rectangle {
+        border-radius: 7px;
+        background: Palette.background1;
+
+        HorizontalLayout {  
+            padding: 4px;
+
+            button-text := Text {
+            	text: root.text;
+                font-weight: 600;
+                color: Palette.text1;
+                horizontal-alignment: center;
+                font-size: 14px;
+            }
+        }
+
+        underline := Rectangle {
+        	background: Palette.accent;
+        	y: parent.height - self.height;
+        	x: (parent.width - self.width) / 2;
+
+        	width: {
+        		!animation.running ? 0px :
+        		parent.width * min(1, animation.elapsed / animation_stage1)
+        	}
+        	height: {
+        		!animation.running ? 0px :
+        		2px * clamp((animation_duration - animation.elapsed) / animation_stage2, 0, 1)
+        	}
+        	opacity: {
+        		!animation.running ? 0 :
+        		clamp((animation_duration - animation.elapsed) / animation_stage2, 0, 1)
+        	}
+        }
+
+        animate background { duration: animation_stage1;  }
+    }
+
+    states [  
+        pressed when root.pressed: {
+            rect.background: Palette.background2;
+            button-text.color: Palette.accent;
+        }
+    ]
+}

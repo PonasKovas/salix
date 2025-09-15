@@ -1,0 +1,25 @@
+export component Animation {
+	in property <duration> duration;
+	out property <bool> running: timer.running;
+	out property <duration> start: -100s;
+	out property <duration> elapsed: animation-tick() - start;
+
+	timer := Timer {
+    	interval: duration;
+    	running: false;
+    	// oneshot
+    	triggered => {
+    		self.running = false;
+    	}
+    }
+
+    public function run() {
+    	start = animation-tick();
+
+        if timer.running {
+        	timer.restart();
+        } else {
+        	timer.running = true;
+        }
+    }
+}
