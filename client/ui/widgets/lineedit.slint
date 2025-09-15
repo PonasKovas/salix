@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 // 
-// Modified to change styling
+// Modified to change/add styling
 
 import { LineEditBase, LineEditClearIcon, LineEditPasswordIcon } from "lineedit-base.slint";
 import { Palette } from "../palette.slint";
@@ -11,6 +11,7 @@ export component LineEdit {
     in property <InputType> input-type;
     in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
     in property <bool> read-only <=> base.read-only;
+    in property <bool> error: false;
     in property <length> font-size <=> base.font-size;
     in property <string> placeholder-text <=> base.placeholder-text;
     out property <bool> has-focus <=> base.has-focus;
@@ -63,7 +64,7 @@ export component LineEdit {
             base.placeholder-color: Palette.text2;
         }
         focused when root.has-focus : {
-            focus-border.background: Palette.accent;
+            focus-border.background: error ? Palette.error : Palette.accent;
         }
     ]
 
@@ -71,7 +72,7 @@ export component LineEdit {
         border-radius: 4px;
         background: Palette.background1;
         border-width: 1px;
-        border-color: Palette.background1;
+        border-color: error ? Palette.error : Palette.background1;
 
         layout := HorizontalLayout {
             padding-left: 12px;
