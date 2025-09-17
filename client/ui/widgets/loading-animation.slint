@@ -1,0 +1,58 @@
+struct Src {
+	img: image,
+	frame-size: int,
+}
+
+export component LoadingAnimation{
+	in property <bool> running <=> timer.running;
+	in property <length> size: 256px;
+
+	property <int> frame_idx: 0;
+	property <Src> src: {
+		if size >= 128px {
+			{
+				img: @image-url("../images/loading-animation-spritesheet-256.png"),
+				frame-size: 256,
+			}
+		} else if size >= 64px {
+			{
+				img: @image-url("../images/loading-animation-spritesheet-64.png"),
+				frame-size: 64,
+			}
+		} else {
+			{
+				img: @image-url("../images/loading-animation-spritesheet-32.png"),
+				frame-size: 32,
+			}
+		}
+	}
+
+    visible: running;
+    width: size;
+    height: size;
+    accessible-label: "loading";
+    accessible-role: progress-indicator;
+
+    timer := Timer {
+    	interval: 1s / 64; // total 64 frames, we want a rotation in 1s
+    	running: true;
+
+    	triggered => {
+    		frame_idx = mod(frame_idx + 1, 64);
+    	}
+    }
+
+    img := Image {
+    	source: src.img;
+	    image-fit: contain;
+	    image-rendering: pixelated;
+
+	    source-clip-width: src.frame-size;
+	    source-clip-height: src.frame-size;
+	    source-clip-x: src.frame-size * mod(frame_idx, 8);
+	    source-clip-y: src.frame-size * floor(frame_idx / 8);
+
+	    width: root.width;
+	    height: root.height;
+    }
+}

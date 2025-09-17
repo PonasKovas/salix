@@ -1,5 +1,5 @@
 import { Palette } from "palette.slint";
-import { Button, Text, LineEdit } from "widgets.slint";
+import { Button, Text, LineEdit, LoadingAnimation } from "widgets.slint";
 
 export component EntryWindow inherits Window {
     in property <string> build-info: "v0.0";
@@ -7,6 +7,77 @@ export component EntryWindow inherits Window {
     title: "Salix";
     width: 400px;
     background: Palette.background1;
+
+    callback login(username: string, password: string);
+    callback register(username: string, password: string);
+
+    function toggle_disable(disable: bool) {
+        login_username.enabled = !disable;
+        login_password.enabled = !disable;
+        login_button.enabled = !disable;
+
+        register_username.enabled = !disable;
+        register_password.enabled = !disable;
+        register_password2.enabled = !disable;
+        register_button.enabled = !disable;
+    }
+
+    function clear_errors() {
+        login_username.error = false;
+        login_password.error = false;
+        register_username.error = false;
+        register_password.error = false;
+        register_password2.error = false;
+    }
+
+    function login_click() {
+        clear_errors();
+
+        if login_username.text == "" {
+            login_username.error = true;
+            return;
+        }
+        if login_password.text == "" {
+            login_password.error = true;
+            return;
+        }
+
+        toggle_disable(true);
+
+        loading.running = true;
+        loading.opacity = 1;
+        loading.x = login_panel.x + (login_panel.width - loading.size) / 2;
+        loading.y = login_panel.y + (login_panel.height - loading.size) / 2;
+
+        login(login_username.text, login_password.text);
+    }
+
+    function register_click() {
+        clear_errors();
+        
+        if register_username.text == "" {
+            register_username.error = true;
+            return;
+        }
+        if register_password.text == "" {
+            register_password.error = true;
+            return;
+        }
+        if register_password2.text == "" || register_password.text != register_password2.text {
+            register_password2.error = true;
+            return;
+        }
+
+
+        toggle_disable(true);
+
+        loading.running = true;
+        loading.opacity = 1;
+        loading.x = register_panel.x + (register_panel.width - loading.size) / 2;
+        loading.y = register_panel.y + (register_panel.height - loading.size) / 2;
+
+        register(register_username.text, register_password.text)
+    }
 
     VerticalLayout {
         padding: 15px;
@@ -22,8 +93,7 @@ export component EntryWindow inherits Window {
             vertical-stretch: 0;
         }
 
-        // login panel
-        Rectangle {
+        login_panel := Rectangle {
             background: Palette.background2;
             vertical-stretch: 1;
 
@@ -37,16 +107,20 @@ export component EntryWindow inherits Window {
                     text: "Login";
                     horizontal-alignment: left;
                 }
-                LineEdit {
+                login_username := LineEdit {
                     placeholder-text: "username";
                     init => { self.focus() }
                 }
-                LineEdit {
+                login_password := LineEdit {
                     placeholder-text: "password";
                     input-type: password;
                 }
-                Button {
+                login_button := Button {
                     text: "login";
+
+                    clicked => {
+                        login_click();
+                    }
                 }
             }
         }
@@ -57,8 +131,7 @@ export component EntryWindow inherits Window {
             horizontal-alignment: center;
         }
 
-        // register panel
-        Rectangle {
+        register_panel := Rectangle {
             background: Palette.background2;
             vertical-stretch: 1;
 
@@ -72,19 +145,23 @@ export component EntryWindow inherits Window {
                     text: "New account";
                     horizontal-alignment: left;
                 }
-                LineEdit {
+                register_username := LineEdit {
                     placeholder-text: "username";
                 }
-                LineEdit {
+                register_password := LineEdit {
                     placeholder-text: "password";
                     input-type: password;
                 }
-                LineEdit {
+                register_password2 := LineEdit {
                     placeholder-text: "password";
                     input-type: password;
                 }
-                Button {
+                register_button := Button {
                     text: "create";
+
+                    clicked => {
+                        register_click();
+                    }
                 }
             }
         }
@@ -93,6 +170,17 @@ export component EntryWindow inherits Window {
             text: root.build-info;
             color: Palette.text2;
             horizontal-alignment: right;
+        }
+    }
+
+    loading := LoadingAnimation {
+        size: 128px;
+        running: false;
+        opacity: 0;
+
+        animate opacity {
+            duration: 1s;
+            easing: ease;
         }
     }
 }
