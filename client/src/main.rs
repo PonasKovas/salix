@@ -12,12 +12,13 @@ use tokio::io::{AsyncBufReadExt, BufReader, stdin};
 use tokio_tungstenite::connect_async;
 use uuid::Uuid;
 
+mod crate_version;
 mod protocol_util;
 mod ui;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	ui::main_ui()?;
+	ui::entry_window()?;
 
 	let token: Uuid = std::env::var("AUTH_TOKEN")?.parse()?;
 

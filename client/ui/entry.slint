@@ -1,8 +1,14 @@
 import { Palette } from "palette.slint";
 import { Button, Text, LineEdit, LoadingAnimation } from "widgets.slint";
 
+export enum PanelView {
+    login,
+    register
+}
+
 export component EntryWindow inherits Window {
     in property <string> build-info: "v0.0";
+    out property <PanelView> panel_view;
 
     title: "Salix";
     width: 400px;
@@ -11,7 +17,7 @@ export component EntryWindow inherits Window {
     callback login(username: string, password: string);
     callback register(username: string, password: string);
 
-    function toggle_disable(disable: bool) {
+    public function toggle_disable(disable: bool) {
         login_username.enabled = !disable;
         login_password.enabled = !disable;
         login_button.enabled = !disable;
@@ -20,9 +26,14 @@ export component EntryWindow inherits Window {
         register_password.enabled = !disable;
         register_password2.enabled = !disable;
         register_button.enabled = !disable;
+
+        if !disable {
+            loading.running = false;
+            loading.opacity = 0;
+        }
     }
 
-    function clear_errors() {
+    public function clear_errors() {
         login_username.error = false;
         login_password.error = false;
         register_username.error = false;
@@ -46,8 +57,6 @@ export component EntryWindow inherits Window {
 
         loading.running = true;
         loading.opacity = 1;
-        loading.x = login_panel.x + (login_panel.width - loading.size) / 2;
-        loading.y = login_panel.y + (login_panel.height - loading.size) / 2;
 
         login(login_username.text, login_password.text);
     }
@@ -73,17 +82,11 @@ export component EntryWindow inherits Window {
 
         loading.running = true;
         loading.opacity = 1;
-        loading.x = register_panel.x + (register_panel.width - loading.size) / 2;
-        loading.y = register_panel.y + (register_panel.height - loading.size) / 2;
 
         register(register_username.text, register_password.text)
     }
 
     VerticalLayout {
-        padding: 15px;
-        alignment: start;
-        spacing: 20px;
-
         Text {
             text: "salix";
             font-size: 50px;
@@ -93,94 +96,155 @@ export component EntryWindow inherits Window {
             vertical-stretch: 0;
         }
 
-        login_panel := Rectangle {
-            background: Palette.background2;
-            vertical-stretch: 1;
+        HorizontalLayout {
+            x: panel_view == PanelView.login ? 0px : -root.width;
+            width: 2 * root.width;
+
+            animate x {
+                duration: 1s;
+                easing: ease-out-expo;
+            }
 
             VerticalLayout {
-                padding: 7px;
-                padding-left: 20px;
-                padding-right: 20px;
-                spacing: 10px;
+                width: 50%;
+                padding: 15px;
+                alignment: start;
+                spacing: 7px;
 
-                Text {
-                    text: "Login";
-                    horizontal-alignment: left;
-                }
-                login_username := LineEdit {
-                    placeholder-text: "username";
-                    init => { self.focus() }
-                }
-                login_password := LineEdit {
-                    placeholder-text: "password";
-                    input-type: password;
-                }
-                login_button := Button {
-                    text: "login";
+                login_panel := Rectangle {
+                    background: Palette.background2;
+                    vertical-stretch: 1;
 
-                    clicked => {
-                        login_click();
+                    VerticalLayout {
+                        padding: 7px;
+                        padding-left: 20px;
+                        padding-right: 20px;
+                        spacing: 10px;
+
+                        Text {
+                            text: "Login";
+                            horizontal-alignment: left;
+                        }
+                        login_username := LineEdit {
+                            placeholder-text: "username";
+                            init => { self.focus() }
+                            accepted(text) => { login_button.clicked() }
+                        }
+                        login_password := LineEdit {
+                            placeholder-text: "password";
+                            input-type: password;
+                            accepted(text) => { login_button.clicked() }
+                        }
+                        login_button := Button {
+                            text: "login";
+
+                            clicked => {
+                                login_click();
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    Text {
+                        text: "or register";
+                        font-weight: 700;
+                        color: Palette.accent;
+
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                panel_view = PanelView.register;
+                            }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                width: 50%;
+                padding: 15px;
+                alignment: start;
+                spacing: 7px;
+
+                register_panel := Rectangle {
+                    background: Palette.background2;
+                    vertical-stretch: 1;
+
+                    VerticalLayout {
+                        padding: 7px;
+                        padding-left: 20px;
+                        padding-right: 20px;
+                        spacing: 10px;
+
+                        Text {
+                            text: "New account";
+                            horizontal-alignment: left;
+                        }
+                        register_username := LineEdit {
+                            placeholder-text: "username";
+                            accepted(text) => { register_button.clicked() }
+                        }
+                        register_password := LineEdit {
+                            placeholder-text: "password";
+                            input-type: password;
+                            accepted(text) => { register_button.clicked() }
+                        }
+                        register_password2 := LineEdit {
+                            placeholder-text: "password";
+                            input-type: password;
+                            accepted(text) => { register_button.clicked() }
+                        }
+                        register_button := Button {
+                            text: "create";
+
+                            clicked => {
+                                register_click();
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: start;
+                    Text {
+                        text: "or login";
+                        font-weight: 700;
+                        color: Palette.accent;
+                        horizontal-alignment: left;
+
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                panel_view = PanelView.login;
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Text {
-            text: "or";
-            font-weight: 600;
-            horizontal-alignment: center;
-        }
+        loading := LoadingAnimation {
+            size: 128px;
+            running: false;
+            opacity: 0;
+            x: (root.width - self.size) / 2;
 
-        register_panel := Rectangle {
-            background: Palette.background2;
-            vertical-stretch: 1;
-
-            VerticalLayout {
-                padding: 7px;
-                padding-left: 20px;
-                padding-right: 20px;
-                spacing: 10px;
-
-                Text {
-                    text: "New account";
-                    horizontal-alignment: left;
-                }
-                register_username := LineEdit {
-                    placeholder-text: "username";
-                }
-                register_password := LineEdit {
-                    placeholder-text: "password";
-                    input-type: password;
-                }
-                register_password2 := LineEdit {
-                    placeholder-text: "password";
-                    input-type: password;
-                }
-                register_button := Button {
-                    text: "create";
-
-                    clicked => {
-                        register_click();
-                    }
-                }
+            animate opacity {
+                duration: 1s;
+                easing: ease;
             }
         }
 
-        Text {
-            text: root.build-info;
-            color: Palette.text2;
-            horizontal-alignment: right;
-        }
-    }
+        HorizontalLayout {
+            padding-right: 15px;
+            padding-bottom: 10px;
+            alignment: end;
 
-    loading := LoadingAnimation {
-        size: 128px;
-        running: false;
-        opacity: 0;
-
-        animate opacity {
-            duration: 1s;
-            easing: ease;
+            Text {
+                text: root.build-info;
+                color: Palette.text2;
+                horizontal-alignment: right;
+            }
         }
     }
 }
