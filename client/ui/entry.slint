@@ -8,7 +8,23 @@ export enum PanelView {
 
 export component EntryWindow inherits Window {
     in property <string> build-info: "v0.0";
-    out property <PanelView> panel_view;
+    
+    out property <string> login_username <=> login_username.text;
+    out property <string> login_password <=> login_password.text;
+    out property <string> register_username <=> register_username.text;
+    out property <string> register_password <=> register_password.text;
+    out property <string> register_password2 <=> register_password2.text;
+
+    in-out property <bool> login_username_error <=> login_username.error;
+    in-out property <bool> login_password_error <=> login_password.error;
+    in-out property <bool> register_username_error <=> register_username.error;
+    in-out property <bool> register_password_error <=> register_password.error;
+    in-out property <bool> register_password2_error <=> register_password2.error;
+
+    in-out property <string> login_error <=> login_error.text;
+    in-out property <string> register_error <=> register_error.text;
+
+    property <PanelView> panel_view;
 
     title: "Salix";
     width: 400px;
@@ -17,71 +33,70 @@ export component EntryWindow inherits Window {
     callback login(username: string, password: string);
     callback register(username: string, password: string);
 
-    public function toggle_disable(disable: bool) {
-        login_username.enabled = !disable;
-        login_password.enabled = !disable;
-        login_button.enabled = !disable;
+    public function set_loading(b: bool) {
+        login_username.enabled = !b;
+        login_password.enabled = !b;
+        login_button.enabled = !b;
 
-        register_username.enabled = !disable;
-        register_password.enabled = !disable;
-        register_password2.enabled = !disable;
-        register_button.enabled = !disable;
+        register_username.enabled = !b;
+        register_password.enabled = !b;
+        register_password2.enabled = !b;
+        register_button.enabled = !b;
 
-        if !disable {
-            loading.running = false;
-            loading.opacity = 0;
-        }
+        loading.running = b;
+        loading.opacity = b ? 1 : 0;
     }
 
-    public function clear_errors() {
+    function unmark_errors() {
         login_username.error = false;
         login_password.error = false;
         register_username.error = false;
         register_password.error = false;
         register_password2.error = false;
+
+        login_error.text = "";
+        register_error.text = "";
     }
 
     function login_click() {
-        clear_errors();
+        unmark_errors();
 
         if login_username.text == "" {
             login_username.error = true;
+            login_error.text = "enter the username";
             return;
         }
         if login_password.text == "" {
             login_password.error = true;
+            login_error.text = "enter the password";
             return;
         }
 
-        toggle_disable(true);
-
-        loading.running = true;
-        loading.opacity = 1;
+        set_loading(true);
 
         login(login_username.text, login_password.text);
     }
 
     function register_click() {
-        clear_errors();
+        unmark_errors();
         
         if register_username.text == "" {
             register_username.error = true;
+            register_error.text = "enter the username";
             return;
         }
         if register_password.text == "" {
             register_password.error = true;
+            register_error.text = "enter the password";
             return;
         }
-        if register_password2.text == "" || register_password.text != register_password2.text {
+        if register_password.text != register_password2.text {
             register_password2.error = true;
+            register_error.text = "password must match";
             return;
         }
 
-
-        toggle_disable(true);
-
-        loading.running = true;
-        loading.opacity = 1;
+        set_loading(true);
 
         register(register_username.text, register_password.text)
     }
@@ -142,6 +157,11 @@ export component EntryWindow inherits Window {
                                 login_click();
                             }
                         }
+                        login_error := Text {
+                            color: Palette.error;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
                     }
                 }
                 HorizontalLayout {
@@ -201,6 +221,11 @@ export component EntryWindow inherits Window {
                             clicked => {
                                 register_click();
                             }
+                        }
+                        register_error := Text {
+                            color: Palette.error;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
                         }
                     }
                 }
