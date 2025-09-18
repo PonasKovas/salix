@@ -30,6 +30,7 @@ reqwest = "0.12.23"
 slint = { version = "1.13.1", default-features = false, features = ["compat-1-2", "renderer-skia", "backend-winit"] }
 slint-build = "1.13.1"
 async-compat = "0.2.5"
+email_address = "0.2.9"
 
 # questionable purpose:
 tower = "0.5.2" # hmm?

@@ -35,4 +35,8 @@ pub enum Error {
 	UsernameConflict,
 	#[error("email already registered")]
 	EmailConflict,
+	/// the client is responsible for validating requirements such as
+	/// the email being valid, or the username being long enough, etc
+	#[error("invalid request")]
+	InvalidRequest,
 }

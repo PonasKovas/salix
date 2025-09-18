@@ -1,5 +1,6 @@
 use crate::{crate_version::version, logic::auth};
 use async_compat::CompatExt;
+use email_address::EmailAddress;
 use slint::ToSharedString;
 
 slint::include_modules!();
@@ -41,6 +42,14 @@ pub fn entry_window() -> anyhow::Result<()> {
 	let entry_weak = entry.as_weak();
 	entry.on_register(move |email, username, password| {
 		let entry = entry_weak.unwrap();
+
+		if !EmailAddress::is_valid(&email) {
+			entry.set_register_email_error(true);
+			entry.set_register_error("invalid email".into());
+			entry.invoke_set_loading(false);
+			return;
+		}
+
 		slint::spawn_local(
 			async move {
 				let res = auth::register(

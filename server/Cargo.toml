@@ -23,6 +23,7 @@ thiserror.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 serde_json.workspace = true
 ahash.workspace = true
+email_address.workspace = true
 
 [dev-dependencies]
 reqwest.workspace = true # for controlling toxiproxy

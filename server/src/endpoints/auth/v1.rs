@@ -7,6 +7,7 @@ use argon2::{
 use argon2::{PasswordHash, PasswordHasher};
 use axum::http::StatusCode;
 use axum::{Json, Router, extract::State, response::IntoResponse, routing::post};
+use email_address::EmailAddress;
 use protocol::auth::v1::{self, *};
 use thiserror::Error;
 use tracing::error;
@@ -25,6 +26,8 @@ pub enum Error {
 	EmailConflict(String),
 	#[error("invalid login")]
 	Unauthorized,
+	#[error("invalid request")]
+	InvalidRequest,
 }
 
 impl IntoResponse for Error {
@@ -37,6 +40,7 @@ impl IntoResponse for Error {
 			Error::UsernameConflict(_) => (StatusCode::CONFLICT, Json(v1::Error::UsernameConflict)),
 			Error::EmailConflict(_) => (StatusCode::CONFLICT, Json(v1::Error::EmailConflict)),
 			Error::Unauthorized => (StatusCode::UNAUTHORIZED, Json(v1::Error::Unauthorized)),
+			Error::InvalidRequest => (StatusCode::BAD_REQUEST, Json(v1::Error::InvalidRequest)),
 		}
 		.into_response()
 	}
@@ -52,6 +56,10 @@ async fn new_account(
 	State(mut state): State<ServerState>,
 	Json(request): Json<NewAccountRequest>,
 ) -> Result<impl IntoResponse, Error> {
+	if !EmailAddress::is_valid(&request.email) {
+		return Err(Error::InvalidRequest);
+	}
+
 	let salt = SaltString::generate(&mut OsRng);
 	let password_hash = argon2()
 		.hash_password(request.password.as_bytes(), &salt)
