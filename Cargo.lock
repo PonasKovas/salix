@@ -237,6 +237,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-compat"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1ba85bc55464dcbf728b56d97e119d673f4cf9062be330a9a26f3acf504a590"
+dependencies = [
+ "futures-core",
+ "futures-io",
+ "once_cell",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "async-executor"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -848,8 +861,10 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-compat",
  "futures",
  "protocol",
+ "reqwest",
  "slint",
  "slint-build",
  "thiserror 2.0.16",

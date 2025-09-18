@@ -12,6 +12,8 @@ anyhow.workspace = true
 uuid.workspace = true
 thiserror.workspace = true
 slint.workspace = true
+reqwest = { workspace = true, features = ["json"] }
+async-compat.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true

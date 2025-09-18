@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use uuid::Uuid;
 
 /// `POST /auth/v1/new` **request** JSON payload
@@ -23,11 +24,15 @@ pub struct LoginSuccess {
 }
 
 /// All possible errors that can be returned in `/auth/v1` as JSON
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Error)]
 #[serde(tag = "code")]
 pub enum Error {
+	#[error("internal server error")]
 	Internal,
+	#[error("unauthorized")]
 	Unauthorized,
+	#[error("username taken")]
 	UsernameConflict,
+	#[error("email already registered")]
 	EmailConflict,
 }

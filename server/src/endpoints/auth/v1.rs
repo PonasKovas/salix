@@ -29,7 +29,7 @@ pub enum Error {
 
 impl IntoResponse for Error {
 	fn into_response(self) -> axum::response::Response {
-		error!("{self}");
+		error!("{self:?}");
 		match self {
 			Error::Database(_) | Error::Internal(_) => {
 				(StatusCode::INTERNAL_SERVER_ERROR, Json(v1::Error::Internal))
