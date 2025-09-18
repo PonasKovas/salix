@@ -22,7 +22,7 @@ jobs:
         id: pages
         uses: actions/configure-pages@v4
       - name: Build docs
-        run: cargo doc --workspace
+        run: cargo doc --workspace --no-deps
       - name: Add html redirect
         run: echo '<meta http-equiv="refresh" content="0;url=protocol/index.html">' > target/doc/index.html
       - name: Remove lock file
