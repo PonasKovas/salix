@@ -20,7 +20,7 @@ impl<D: ExecutorHack> Database<D> {
 			User,
 			r#"SELECT u.id, u.username, u.email, u.password
 			FROM active_sessions JOIN users AS u ON active_sessions.user_id = u.id
-			WHERE active_sessions.token = $1"#,
+			WHERE active_sessions.token = $1 AND active_sessions.expires_at > NOW()"#,
 			token,
 		)
 		.fetch_optional(self.as_executor())
