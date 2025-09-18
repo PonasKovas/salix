@@ -32,13 +32,17 @@ pub async fn login(email: String, password: String) -> Result<Uuid, LoginError> 
 	Ok(response_data.auth_token)
 }
 
-pub async fn register(email: String, password: String) -> Result<Uuid, LoginError> {
+pub async fn register(email: String, username: String, password: String) -> Result<(), LoginError> {
 	let client = reqwest::Client::new();
 
-	let data = auth::LoginRequest { email, password };
+	let data = auth::NewAccountRequest {
+		username,
+		email,
+		password,
+	};
 
 	let res = client
-		.post("http://localhost:3000/auth/v1/login")
+		.post("http://localhost:3000/auth/v1/new")
 		.json(&data)
 		.send()
 		.await?;
@@ -49,7 +53,5 @@ pub async fn register(email: String, password: String) -> Result<Uuid, LoginErro
 		return Err(LoginError::Api(error));
 	}
 
-	let response_data = res.json::<auth::LoginSuccess>().await?;
-
-	Ok(response_data.auth_token)
+	Ok(())
 }

@@ -63,14 +63,16 @@ component ErrorText inherits Text {
 export component EntryWindow inherits Window {
     in property <string> build-info: "v0.0";
     
-    out property <string> login_username <=> login_username.text;
+    out property <string> login_email <=> login_email.text;
     out property <string> login_password <=> login_password.text;
+    out property <string> register_email <=> register_email.text;
     out property <string> register_username <=> register_username.text;
     out property <string> register_password <=> register_password.text;
     out property <string> register_password2 <=> register_password2.text;
 
-    in-out property <bool> login_username_error <=> login_username.error;
+    in-out property <bool> login_email_error <=> login_email.error;
     in-out property <bool> login_password_error <=> login_password.error;
+    in-out property <bool> register_email_error <=> register_email.error;
     in-out property <bool> register_username_error <=> register_username.error;
     in-out property <bool> register_password_error <=> register_password.error;
     in-out property <bool> register_password2_error <=> register_password2.error;
@@ -85,13 +87,14 @@ export component EntryWindow inherits Window {
     background: Palette.background1;
 
     callback login(username: string, password: string);
-    callback register(username: string, password: string);
+    callback register(email: string, username: string, password: string);
 
     public function set_loading(b: bool) {
-        login_username.enabled = !b;
+        login_email.enabled = !b;
         login_password.enabled = !b;
         login_button.enabled = !b;
 
+        register_email.enabled = !b;
         register_username.enabled = !b;
         register_password.enabled = !b;
         register_password2.enabled = !b;
@@ -102,8 +105,9 @@ export component EntryWindow inherits Window {
     }
 
     function unmark_errors() {
-        login_username.error = false;
+        login_email.error = false;
         login_password.error = false;
+        register_email.error = false;
         register_username.error = false;
         register_password.error = false;
         register_password2.error = false;
@@ -115,9 +119,9 @@ export component EntryWindow inherits Window {
     function login_click() {
         unmark_errors();
 
-        if login_username.text == "" {
-            login_username.error = true;
-            login_error.text = "enter the username";
+        if login_email.text == "" {
+            login_email.error = true;
+            login_error.text = "enter the email";
             return;
         }
         if login_password.text == "" {
@@ -128,31 +132,36 @@ export component EntryWindow inherits Window {
 
         set_loading(true);
 
-        login(login_username.text, login_password.text);
+        login(login_email.text, login_password.text);
     }
 
     function register_click() {
         unmark_errors();
         
+        if register_email.text == "" {
+            register_email.error = true;
+            register_error.text = "enter your email";
+            return;
+        }
         if register_username.text == "" {
             register_username.error = true;
-            register_error.text = "enter the username";
+            register_error.text = "enter a username";
             return;
         }
         if register_password.text == "" {
             register_password.error = true;
-            register_error.text = "enter the password";
+            register_error.text = "enter a password";
             return;
         }
         if register_password.text != register_password2.text {
             register_password2.error = true;
-            register_error.text = "password must match";
+            register_error.text = "passwords must match";
             return;
         }
 
         set_loading(true);
 
-        register(register_username.text, register_password.text)
+        register(register_email.text, register_username.text, register_password.text)
     }
 
     VerticalLayout {
@@ -179,8 +188,8 @@ export component EntryWindow inherits Window {
                     text: "Login";
                     horizontal-alignment: left;
                 }
-                login_username := LineEdit {
-                    placeholder-text: "username";
+                login_email := LineEdit {
+                    placeholder-text: "email";
                     init => { self.focus() }
                     accepted(text) => { login_button.clicked() }
                 }
@@ -208,6 +217,10 @@ export component EntryWindow inherits Window {
                 Text {
                     text: "New account";
                     horizontal-alignment: left;
+                }
+                register_email := LineEdit {
+                    placeholder-text: "email";
+                    accepted(text) => { register_button.clicked() }
                 }
                 register_username := LineEdit {
                     placeholder-text: "username";

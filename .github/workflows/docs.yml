@@ -21,8 +21,6 @@ jobs:
       - name: Setup pages
         id: pages
         uses: actions/configure-pages@v4
-      - name: Clean docs folder
-        run: cargo clean --doc
       - name: Build docs
         run: cargo doc --workspace
       - name: Add html redirect
