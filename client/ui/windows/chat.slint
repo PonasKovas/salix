@@ -1,0 +1,11 @@
+import { Palette } from "../palette.slint";
+import { Button, Text, LineEdit, LoadingAnimation } from "../widgets.slint";
+
+export component ChatWindow inherits Window {
+	in property <string> build-info: "v0.0";
+
+	title: "Salix";
+    preferred-width: 100%;
+    preferred-height: 100%;
+    background: Palette.background1;
+}

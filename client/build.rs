@@ -25,7 +25,7 @@ fn get_commit_hash() -> Result<String, Box<dyn Error>> {
 }
 
 fn build_slint() -> Result<(), slint_build::CompileError> {
-	slint_build::compile("ui/entry.slint")?;
+	slint_build::compile("ui/windows.slint")?;
 
 	Ok(())
 }

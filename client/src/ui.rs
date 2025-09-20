@@ -12,6 +12,9 @@ pub fn entry_window() -> anyhow::Result<()> {
 
 	let entry_weak = entry.as_weak();
 	entry.on_login(move |email, password| {
+		let chat_window = ChatWindow::new().unwrap();
+		chat_window.show().unwrap();
+
 		let entry = entry_weak.unwrap();
 		slint::spawn_local(
 			async move {

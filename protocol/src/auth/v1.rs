@@ -6,6 +6,7 @@ use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NewAccountRequest {
 	pub username: String,
+	/// must be a valid email
 	pub email: String,
 	pub password: String,
 }
