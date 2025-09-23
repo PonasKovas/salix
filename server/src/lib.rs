@@ -2,6 +2,7 @@ use anyhow::Result;
 use axum::{Router, routing::any};
 use clap::Parser;
 use database::Database;
+use email::Email;
 use endpoints::{auth::auth_routes, main::main_endpoint};
 use logging::init_logging;
 use sqlx::PgPool;
@@ -11,6 +12,7 @@ use update_listener::UpdateListener;
 pub mod cmd_args;
 pub mod config;
 pub mod database;
+pub mod email;
 pub mod endpoints;
 pub mod logging;
 pub mod populate;
@@ -21,6 +23,7 @@ pub mod update_listener;
 pub struct ServerState {
 	pub db: Database<PgPool>,
 	pub updates: UpdateListener,
+	pub email: Email,
 }
 
 pub async fn main() -> Result<()> {
@@ -39,6 +42,7 @@ pub async fn main() -> Result<()> {
 	let state = ServerState {
 		updates: UpdateListener::init(&db).await?,
 		db,
+		email: Email::init(&config)?,
 	};
 
 	let app = Router::new()

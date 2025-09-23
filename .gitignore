@@ -2,3 +2,4 @@
 /certs
 *.sublime-project
 *.sublime-workspace
+/salix.toml
