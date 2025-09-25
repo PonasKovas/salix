@@ -4,6 +4,7 @@ use lettre::{
 	Address, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
 	message::{Mailbox, header::ContentType},
 };
+use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 pub struct Email {
@@ -23,7 +24,7 @@ impl Email {
 			noreply_sender,
 		})
 	}
-	pub async fn send_email_confirmation(&self, recipient: &str, code: &str) -> Result<()> {
+	pub async fn send_email_verification(&self, recipient: &str, link_token: Uuid) -> Result<()> {
 		let message = Message::builder()
 			.from(Mailbox::new(
 				Some("Salix".to_owned()),
@@ -32,7 +33,27 @@ impl Email {
 			.to(recipient.parse()?)
 			.subject("Salix account email confirmation")
 			.header(ContentType::TEXT_PLAIN)
-			.body(format!("Hello!\n\nYour verification code is: {code}."))?;
+			.body(format!(
+				"Hello!\n\nYour verification code is: {link_token}."
+			))?;
+
+		self.transport.send(message).await?;
+
+		Ok(())
+	}
+	pub async fn send_reminder_about_account(&self, recipient: &str, username: &str) -> Result<()> {
+		let message = Message::builder()
+			.from(Mailbox::new(
+				Some("Salix".to_owned()),
+				self.noreply_sender.clone(),
+			))
+			.to(recipient.parse()?)
+			.subject("Salix account reminder")
+			.header(ContentType::TEXT_PLAIN)
+			.body(format!(
+				"Hello!\n\nSomeone attempted to create a new account with your email.
+				If that was you, we remind you that you already have a Salix account with the username \"{username}\"."
+			))?;
 
 		self.transport.send(message).await?;
 

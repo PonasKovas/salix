@@ -1,10 +1,30 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
+CREATE TABLE email_verifications (
+    email citext PRIMARY KEY,
+    -- private id is used in the email confirmation link to get the code
+    link_token_hash CHAR(64) NOT NULL UNIQUE,
+    code INTEGER NOT NULL,
+    attempts SMALLINT NOT NULL DEFAULT 0,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE registrations (
+    id UUID PRIMARY KEY,
+    email citext NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     username citext NOT NULL UNIQUE,
     email citext NOT NULL UNIQUE,
-    password TEXT NOT NULL
+    password TEXT NOT NULL,
+    -- when someone tries to create a new account with
+    -- an email that is already registered, the email will
+    -- receive a reminder about the account, as long as one wasnt
+    -- sent a short time ago already
+    last_account_reminder_sent TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE active_sessions (
@@ -36,6 +56,7 @@ CREATE TABLE messages_sequential_ids (
     next_sequence_id BIGINT NOT NULL DEFAULT 0
 );
 
+-- YOU MUST USE THIS FUNCTION TO ADD NEW MESSAGES
 -- returns the sequential id of the newly added message
 CREATE FUNCTION add_message(
     p_id UUID,

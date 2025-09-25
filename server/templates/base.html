@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %} salix.chat {% endblock %}</title>
+    <style>
+        :root {
+            --background1: #1A1D1A;
+            --background2: #242824;
+            --accent: #73AB84;
+            --text1: #E4E6EB;
+            --text2: #A8B3A8;
+            --error: #E54B4B;
+        }
+
+        body {
+            background-color: var(--background1);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            color: var(--text1);
+            flex-direction: column;
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% block body %} <div style="font-size: 12rem; color: var(--accent);">salix.chat</div> {% endblock %}
+</body>
+</html>

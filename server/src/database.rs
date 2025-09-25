@@ -3,7 +3,9 @@ use sqlx::{Executor, PgConnection, PgPool, Postgres, Transaction, postgres::PgLi
 use std::ops::{Deref, DerefMut};
 
 pub mod active_sessions;
+pub mod email_verifications;
 pub mod message;
+pub mod registrations;
 pub mod user;
 
 #[derive(Clone, Debug)]

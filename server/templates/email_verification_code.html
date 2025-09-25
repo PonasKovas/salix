@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}salix verification code{% endblock %}
+
+{% block head %}
+<style>
+.prompt {
+    font-size: 3rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.code {
+    font-size: 8rem;
+    font-weight: bold;
+    letter-spacing: 1rem;
+    padding: 1rem 2rem;
+    background-color: #242824;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: all;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="prompt">your email verification code</div>
+<div class="code">{{ code }}</div>
+{% endblock %}

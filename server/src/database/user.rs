@@ -1,4 +1,5 @@
 use super::{Database, ExecutorHack};
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
@@ -7,18 +8,16 @@ pub struct User {
 	pub username: String,
 	pub email: String,
 	pub password: String,
+	pub last_account_reminder_sent: DateTime<Utc>,
 }
 
-pub enum InsertUserError {
-	UsernameConflict,
-	EmailConflict,
-}
+pub struct UsernameConflict;
 
 impl<D: ExecutorHack> Database<D> {
 	pub async fn user_by_auth_token(&mut self, token: Uuid) -> sqlx::Result<Option<User>> {
 		sqlx::query_as!(
 			User,
-			r#"SELECT u.id, u.username, u.email, u.password
+			r#"SELECT u.id, u.username, u.email, u.password, u.last_account_reminder_sent
 			FROM active_sessions JOIN users AS u ON active_sessions.user_id = u.id
 			WHERE active_sessions.token = $1 AND active_sessions.expires_at > NOW()"#,
 			token,
@@ -29,7 +28,7 @@ impl<D: ExecutorHack> Database<D> {
 	pub async fn user_by_id(&mut self, id: Uuid) -> sqlx::Result<Option<User>> {
 		sqlx::query_as!(
 			User,
-			r#"SELECT id, username, email, password
+			r#"SELECT id, username, email, password, last_account_reminder_sent
 			FROM users
 			WHERE id = $1"#,
 			id,
@@ -37,10 +36,21 @@ impl<D: ExecutorHack> Database<D> {
 		.fetch_optional(self.as_executor())
 		.await
 	}
+	pub async fn user_by_username(&mut self, username: &str) -> sqlx::Result<Option<User>> {
+		sqlx::query_as!(
+			User,
+			r#"SELECT id, username, email, password, last_account_reminder_sent
+			FROM users
+			WHERE username = $1"#,
+			username,
+		)
+		.fetch_optional(self.as_executor())
+		.await
+	}
 	pub async fn user_by_email(&mut self, email: &str) -> sqlx::Result<Option<User>> {
 		sqlx::query_as!(
 			User,
-			r#"SELECT id, username, email, password
+			r#"SELECT id, username, email, password, last_account_reminder_sent
 			FROM users
 			WHERE email = $1"#,
 			email,
@@ -53,7 +63,7 @@ impl<D: ExecutorHack> Database<D> {
 		username: &str,
 		email: &str,
 		password: &str,
-	) -> sqlx::Result<Result<Uuid, InsertUserError>> {
+	) -> sqlx::Result<Result<Uuid, UsernameConflict>> {
 		let user_id = Uuid::now_v7();
 
 		match sqlx::query!(
@@ -68,12 +78,11 @@ impl<D: ExecutorHack> Database<D> {
 		{
 			Ok(_) => Ok(Ok(user_id)),
 			Err(sqlx::Error::Database(db_err)) => {
-				match (db_err.is_unique_violation(), db_err.constraint()) {
-					(true, Some("users_username_key")) => {
-						Ok(Err(InsertUserError::UsernameConflict))
-					}
-					(true, Some("users_email_key")) => Ok(Err(InsertUserError::EmailConflict)),
-					_ => Err(sqlx::Error::Database(db_err)),
+				if db_err.is_unique_violation() && db_err.constraint() == Some("users_username_key")
+				{
+					Ok(Err(UsernameConflict))
+				} else {
+					Err(sqlx::Error::Database(db_err))
 				}
 			}
 			Err(e) => Err(e),
