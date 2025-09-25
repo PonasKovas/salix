@@ -1,5 +1,4 @@
 use super::{Database, ExecutorHack};
-use sqlx::PgTransaction;
 use thiserror::Error;
 
 const MAX_VERIFICATION_ATTEMPTS: i16 = 3;
@@ -73,20 +72,13 @@ impl<D: ExecutorHack> Database<D> {
 		.await
 		.map(|i| i.map(|i| i as u32))
 	}
-}
-
-// no other way to have a transaction it seems. sqlx is slop confirmed.
-// can only even create a Transaction from Pool - not from a Connection, or a Listener,
-// or (!!) anything that implements Executor which would be most logical and useful
-//
-// AND THEYRE NOT FUCKING MERGING MY PR THAT FIXES A BUG. FORCED TO USE MY FORK EVEN AFTER
-// 3 FUCKING WEEKS AND COUNTING. LEFT ON READ
-impl<'c> Database<PgTransaction<'c>> {
 	pub async fn verify_email(
 		&mut self,
 		email: &str,
 		code: u32,
 	) -> sqlx::Result<Result<(), VerifyEmailError>> {
+		let mut transaction = self.transaction().await?;
+
 		let res = match sqlx::query!(
 			r#"UPDATE email_verifications
 			SET attempts = attempts + 1
@@ -94,7 +86,7 @@ impl<'c> Database<PgTransaction<'c>> {
 			RETURNING code, attempts"#,
 			email
 		)
-		.fetch_optional(self.as_executor())
+		.fetch_optional(transaction.as_executor())
 		.await?
 		{
 			Some(res) => res,
@@ -112,8 +104,10 @@ impl<'c> Database<PgTransaction<'c>> {
 		}
 
 		sqlx::query!(r#"DELETE FROM email_verifications WHERE email = $1"#, email)
-			.execute(self.as_executor())
+			.execute(transaction.as_executor())
 			.await?;
+
+		transaction.commit().await?;
 
 		Ok(Ok(()))
 	}

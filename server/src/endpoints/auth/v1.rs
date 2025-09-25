@@ -132,7 +132,7 @@ async fn verify_email(
 	State(mut state): State<ServerState>,
 	Json(request): Json<VerifyEmailRequest>,
 ) -> Result<Json<VerifyEmailResponse>, Error> {
-	let mut transaction = Database::new(state.db.inner.begin().await?);
+	let mut transaction = state.db.transaction().await?;
 	if let Err(e) = transaction
 		.verify_email(&request.email, request.code)
 		.await?
@@ -143,7 +143,7 @@ async fn verify_email(
 			VerifyEmailError::Invalid => return Err(v1::Error::InvalidRequest.into()),
 		}
 	}
-	transaction.inner.commit().await?;
+	transaction.commit().await?;
 
 	// code verified, create a new registration id
 	let registration_id = Uuid::now_v7();
@@ -161,7 +161,7 @@ async fn finalize_new_account(
 	State(mut state): State<ServerState>,
 	Json(request): Json<FinalizeNewAccountRequest>,
 ) -> Result<Json<LoginSuccess>, Error> {
-	let mut transaction = Database::new(state.db.inner.begin().await?);
+	let mut transaction = state.db.transaction().await?;
 
 	let registration = match transaction
 		.get_registration(request.registration_id)
@@ -187,7 +187,7 @@ async fn finalize_new_account(
 		.remove_registration(request.registration_id)
 		.await?;
 
-	transaction.inner.commit().await?;
+	transaction.commit().await?;
 
 	let auth_token = new_auth_session(&mut state, user_id).await?;
 

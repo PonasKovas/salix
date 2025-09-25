@@ -1,5 +1,5 @@
 use crate::{cmd_args::Args, config::Config};
-use sqlx::{Executor, PgConnection, PgPool, Postgres, Transaction, postgres::PgListener};
+use sqlx::{Acquire, Executor, PgConnection, PgPool, Postgres, Transaction, postgres::PgListener};
 use std::ops::{Deref, DerefMut};
 
 pub mod active_sessions;
@@ -31,6 +31,16 @@ impl<D: ExecutorHack> Database<D> {
 	fn as_executor(&mut self) -> impl Executor<'_, Database = Postgres> {
 		self.inner.as_executor()
 	}
+	pub async fn transaction<'a>(
+		&'a mut self,
+	) -> sqlx::Result<Database<Transaction<'a, Postgres>>> {
+		Ok(Database::new(self.inner.as_executor().begin().await?))
+	}
+}
+impl<'a> Database<Transaction<'a, Postgres>> {
+	pub async fn commit(self) -> sqlx::Result<()> {
+		self.inner.commit().await
+	}
 }
 
 impl<D> Deref for Database<D> {
@@ -47,7 +57,7 @@ impl<D> DerefMut for Database<D> {
 }
 
 pub trait ExecutorHack {
-	type Executor<'a>: Executor<'a, Database = Postgres>
+	type Executor<'a>: Executor<'a, Database = Postgres> + Acquire<'a, Database = Postgres>
 	where
 		Self: 'a;
 
