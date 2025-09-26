@@ -15,9 +15,9 @@ pub mod database;
 pub mod email;
 pub mod endpoints;
 pub mod logging;
+pub mod pages;
 pub mod populate;
 pub mod socket;
-pub mod templates;
 pub mod update_listener;
 
 #[derive(Clone)]

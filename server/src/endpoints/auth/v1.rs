@@ -1,12 +1,11 @@
 use crate::{
 	ServerState,
 	database::{
-		Database,
 		email_verifications::{EmailAlreadyAdded, VerifyEmailError},
 		user::UsernameConflict,
 	},
-	templates::{
-		email_verification::{CodePage, code_not_found_page},
+	pages::{
+		email_verification::{code_not_found_page, code_page},
 		internal_error_page,
 	},
 };
@@ -227,17 +226,12 @@ async fn display_verification_code(
 			return Html(code_not_found_page().into());
 		}
 		Err(e) => {
-			error!("error getting email verification code: {e:?}");
+			error!("error getting email verification code (link token {link_token}): {e:?}");
 			return Html(internal_error_page().into());
 		}
 	};
 
-	Html(
-		CodePage { code }
-			.render()
-			.expect("code page rendering is infallible")
-			.into(),
-	)
+	Html(code_page(code).into())
 }
 
 fn hash_link_token(token: Uuid) -> String {

@@ -1,10 +1,18 @@
 use askama::Template;
 use std::sync::OnceLock;
 
-#[derive(Template)]
-#[template(path = "email_verification_code.html")]
-pub struct CodePage {
-	pub code: u32,
+pub fn code_page(code: u32) -> String {
+	#[derive(Template)]
+	#[template(path = "email_verification_code.html")]
+	struct CodePage<'a> {
+		code: &'a str,
+	}
+
+	CodePage {
+		code: &format!("{code:04}"),
+	}
+	.render()
+	.unwrap()
 }
 
 pub fn code_not_found_page() -> &'static str {
