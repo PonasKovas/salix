@@ -14,6 +14,9 @@ pub mod palette {
 	pub const ACCENT: &'static str = "#73AB84";
 }
 
+pub const PREHEADER_WHITESPACE: &'static [&'static str] =
+	&["&#847; &zwnj; &nbsp; &#8199; &shy; "; 200];
+
 pub fn internal_error_page() -> &'static str {
 	#[derive(Template)]
 	#[template(path = "internal_error.html")]
