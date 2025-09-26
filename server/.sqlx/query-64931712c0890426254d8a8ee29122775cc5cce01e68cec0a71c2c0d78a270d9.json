@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\t\tINSERT INTO registrations (id, email, expires_at)\n\t\t\tVALUES ($1, $2, NOW() + ('1 min'::interval * $3))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "64931712c0890426254d8a8ee29122775cc5cce01e68cec0a71c2c0d78a270d9"
+}

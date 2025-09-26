@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n\t\t\tINSERT INTO email_verifications (email, link_token_hash, code, expires_at)\n\t\t\tVALUES ($1, $2, $3, NOW() + ('1 min'::interval * $4))\n\t\t\tON CONFLICT (email)\n\t\t\tDO UPDATE SET\n\t\t\t    link_token_hash = $2,\n\t\t\t    code = $3,\n\t\t\t    expires_at = NOW() + ('1 min'::interval * $4),\n\t\t\t    attempts = 0\n\t\t\tWHERE\n\t\t\t    email_verifications.expires_at < NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        },
+        "Bpchar",
+        "Int4",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4dd8b173457fddee436663e97b8b1b82e8c2c3bb6c6094e5dd82f5bdbf15b29a"
+}

@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE email_verifications\n\t\t\tSET attempts = attempts + 1\n\t\t\tWHERE email = $1 AND expires_at > NOW()\n\t\t\tRETURNING code, attempts",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "email_verifications",
+            "name": "code"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "attempts",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "email_verifications",
+            "name": "attempts"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "citext",
+            "kind": "Simple"
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "a980e9ae8d72a9a206f4bbd01e6ad7c7452bca12d29b840a7de93a90e3051bcd"
+}

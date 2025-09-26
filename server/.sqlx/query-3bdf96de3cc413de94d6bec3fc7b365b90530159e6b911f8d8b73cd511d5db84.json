@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, username, email, password\n\t\t\tFROM users\n\t\t\tWHERE id = $1",
+  "query": "SELECT id, username, email, password, last_account_reminder_sent\n\t\t\tFROM users\n\t\t\tWHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -56,6 +56,17 @@
             "name": "password"
           }
         }
+      },
+      {
+        "ordinal": 4,
+        "name": "last_account_reminder_sent",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "last_account_reminder_sent"
+          }
+        }
       }
     ],
     "parameters": {
@@ -67,8 +78,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "e9fc85d4a38497d659aff38a1fedf33926c1fc668fe100637ce60eb9998810a4"
+  "hash": "3bdf96de3cc413de94d6bec3fc7b365b90530159e6b911f8d8b73cd511d5db84"
 }

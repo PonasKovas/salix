@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.id, u.username, u.email, u.password\n\t\t\tFROM active_sessions JOIN users AS u ON active_sessions.user_id = u.id\n\t\t\tWHERE active_sessions.token = $1 AND active_sessions.expires_at > NOW()",
+  "query": "SELECT u.id, u.username, u.email, u.password, u.last_account_reminder_sent\n\t\t\tFROM active_sessions JOIN users AS u ON active_sessions.user_id = u.id\n\t\t\tWHERE active_sessions.token = $1 AND active_sessions.expires_at > NOW()",
   "describe": {
     "columns": [
       {
@@ -56,6 +56,17 @@
             "name": "password"
           }
         }
+      },
+      {
+        "ordinal": 4,
+        "name": "last_account_reminder_sent",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "last_account_reminder_sent"
+          }
+        }
       }
     ],
     "parameters": {
@@ -67,8 +78,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "25489cd9423ac6d5a7ca6d933d3f03ab55443a8c61424e14e4a10ab35eac3d9d"
+  "hash": "7792950a19e52503fa94f673db9c6ff219634197cc112de9838b1a168e0589c9"
 }

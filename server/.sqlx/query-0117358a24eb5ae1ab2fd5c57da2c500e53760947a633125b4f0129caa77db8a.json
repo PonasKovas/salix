@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT code\n\t\t\tFROM email_verifications\n\t\t\tWHERE link_token_hash = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "code",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "email_verifications",
+            "name": "code"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bpchar"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0117358a24eb5ae1ab2fd5c57da2c500e53760947a633125b4f0129caa77db8a"
+}
