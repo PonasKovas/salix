@@ -1,0 +1,34 @@
+import { Palette } from "../../palette.slint";
+import { PanelView, ErrorText } from "panel-view.slint";
+import { Button, Text, LineEdit } from "../../widgets.slint";
+
+export component Register2Panel inherits PanelView {
+	in property <bool> enabled: true;
+	in property <string> error_message <=> error.text;
+
+	in-out property <string> code <=> code.text;
+	callback action <=> button.clicked;
+
+    Text {
+        text: "Enter the 4-digit code";
+        wrap: word-wrap;
+        horizontal-alignment: left;
+    }
+    code := LineEdit {
+        placeholder-text: "0000";
+        input-type: number;
+        enabled: root.enabled;
+        accepted(text) => { button.clicked() }
+    }
+    button := Button {
+        text: "confirm";
+        enabled: root.enabled;
+    }
+    Text {
+        text: "The code was sent to your email address.\nMake sure to check your spam folder.\nThe code will expire in 1 hour.";
+        wrap: word-wrap;
+        horizontal-alignment: center;
+        color: Palette.text2;
+    }
+    error := ErrorText {}
+}

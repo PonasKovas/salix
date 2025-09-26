@@ -1,5 +1,54 @@
 {% extends "base.html" %}
 
+{% block title %}Salix Internal Error{% endblock %}
+
+{% block head %}
+<style>
+    .error-container {
+        text-align: center;
+        max-width: 550px;
+    }
+    .error-bar {
+        height: 8px;
+        width: 100px;
+        background-color: {{ crate::pages::palette::ERROR }};
+        border-radius: 4px;
+        display: inline-block;
+        margin-bottom: 30px;
+    }
+    .error-title {
+        font-size: 2.5rem;
+        color: {{ crate::pages::palette::TEXT1 }};
+        margin: 0 0 10px;
+    }
+    .error-description {
+        color: {{ crate::pages::palette::TEXT2 }};
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin-bottom: 30px;
+    }
+    .home-link {
+        display: inline-block;
+        padding: 12px 24px;
+        background-color: {{ crate::pages::palette::ACCENT }};
+        color: {{ crate::pages::palette::BACKGROUND1 }};
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        transition: opacity 0.2s;
+    }
+    .home-link:hover {
+        opacity: 0.85;
+    }
+</style>
+{% endblock %}
+
 {% block body %}
-<div style="font-size: 12rem; color: var(--error);">internal server error :/</div>
+<div class="error-container">
+    <div class="error-bar"></div>
+    <h1 class="error-title">A branch fell in the grove.</h1>
+    <p class="error-description">
+        It seems something unexpected happened on our server. Our team of digital gardeners has been alerted and will get things sorted out shortly.
+    </p>
+</div>
 {% endblock %}

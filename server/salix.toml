@@ -4,6 +4,8 @@
 bind_to = "0.0.0.0:3000"
 # Postgres database url
 database_url = "postgres://localhost/salix"
+# Publicly available base URL for the socket to which the server binds
+public_base_url = "http://localhost:3000/"
 
 [email]
 noreply = "smtps://user:pass@hostname:port"

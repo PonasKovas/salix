@@ -14,4 +14,7 @@ pub struct Args {
 	/// Populate the database with dummy dev data
 	#[arg(short, long)]
 	pub populate: bool,
+	/// Enables developer mode - instead of actually sending emails just logs them.
+	#[arg(long)]
+	pub devmode: bool,
 }

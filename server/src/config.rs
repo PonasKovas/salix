@@ -9,6 +9,8 @@ pub struct Config {
 	pub bind_to: SocketAddr,
 	/// Postgres database url
 	pub database_url: String,
+	/// Publicly available base URL for the socket to which the server binds
+	pub public_base_url: Url,
 	/// email config
 	pub email: EmailConfig,
 }

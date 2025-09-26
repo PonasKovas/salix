@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use axum::{Router, routing::any};
 use clap::Parser;
+use config::Config;
 use database::Database;
 use email::Email;
 use endpoints::{auth::auth_routes, main::main_endpoint};
@@ -25,13 +28,14 @@ pub struct ServerState {
 	pub db: Database<PgPool>,
 	pub updates: UpdateListener,
 	pub email: Email,
+	pub config: Arc<Config>,
 }
 
 pub async fn main() -> Result<()> {
 	init_logging();
 
 	let args = cmd_args::Args::parse();
-	let config = config::read_config(&args.config).await?;
+	let config = Arc::new(config::read_config(&args.config).await?);
 
 	let db = Database::init(&config, &args).await?;
 
@@ -40,18 +44,19 @@ pub async fn main() -> Result<()> {
 		return populate::populate(&db).await;
 	}
 
+	let listener = tokio::net::TcpListener::bind(config.bind_to).await?;
+
 	let state = ServerState {
 		updates: UpdateListener::init(&db).await?,
 		db,
 		email: Email::init(&config)?,
+		config,
 	};
 
 	let app = Router::new()
 		.nest("/auth", auth_routes())
 		.route("/v{version}", any(main_endpoint))
 		.with_state(state);
-
-	let listener = tokio::net::TcpListener::bind(config.bind_to).await?;
 
 	info!("TCP listener bound on {}", listener.local_addr()?);
 	axum::serve(listener, app).await?;

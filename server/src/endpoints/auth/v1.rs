@@ -5,6 +5,7 @@ use crate::{
 		user::UsernameConflict,
 	},
 	pages::{
+		self,
 		email_verification::{code_not_found_page, code_page},
 		internal_error_page,
 	},
@@ -15,7 +16,6 @@ use argon2::{
 	password_hash::{SaltString, rand_core::OsRng},
 };
 use argon2::{PasswordHash, PasswordHasher};
-use askama::Template;
 use axum::{
 	Json, Router,
 	extract::State,
@@ -77,7 +77,7 @@ pub fn routes() -> Router<ServerState> {
 async fn start_email_verify(
 	State(mut state): State<ServerState>,
 	Json(request): Json<StartEmailVerifyRequest>,
-) -> Result<(), Error> {
+) -> Result<Json<()>, Error> {
 	if !EmailAddress::is_valid(&request.email) {
 		return Err(v1::Error::InvalidRequest.into());
 	}
@@ -92,7 +92,11 @@ async fn start_email_verify(
 			if since_last_reminder.num_hours() >= EMAIL_ACCOUNT_REMIND_TIMEOUT {
 				state
 					.email
-					.send_reminder_about_account(&request.email, &user.username)
+					.send_noreply_email(
+						&request.email,
+						"Salix Account Notice",
+						&pages::email::account_reminder(),
+					)
 					.await?;
 			}
 		}
@@ -114,35 +118,42 @@ async fn start_email_verify(
 			{
 				// email must be already sent. no need to send it again, and dont let the user know that
 				// the email was already added
-				return Ok(());
+				return Ok(Json(()));
 			}
+
+			let link = state
+				.config
+				.public_base_url
+				.join("auth/v1/verify/")
+				.unwrap()
+				.join(&link_token.to_string())
+				.unwrap();
 
 			state
 				.email
-				.send_email_verification(&request.email, link_token)
+				.send_noreply_email(
+					&request.email,
+					"Salix Verification Code",
+					&pages::email::verification_code(link.as_str()),
+				)
 				.await?;
 		}
 	}
 
-	Ok(())
+	Ok(Json(()))
 }
 
 async fn verify_email(
 	State(mut state): State<ServerState>,
 	Json(request): Json<VerifyEmailRequest>,
 ) -> Result<Json<VerifyEmailResponse>, Error> {
-	let mut transaction = state.db.transaction().await?;
-	if let Err(e) = transaction
-		.verify_email(&request.email, request.code)
-		.await?
-	{
+	if let Err(e) = state.db.verify_email(&request.email, request.code).await? {
 		match e {
 			VerifyEmailError::IncorrectCode => return Err(v1::Error::IncorrectCode.into()),
 			VerifyEmailError::TooManyAttempts => return Err(v1::Error::TooManyAttempts.into()),
 			VerifyEmailError::Invalid => return Err(v1::Error::InvalidRequest.into()),
 		}
 	}
-	transaction.commit().await?;
 
 	// code verified, create a new registration id
 	let registration_id = Uuid::now_v7();

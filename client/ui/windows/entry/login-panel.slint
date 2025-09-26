@@ -1,0 +1,36 @@
+import { Palette } from "../../palette.slint";
+import { PanelView, ErrorText } from "panel-view.slint";
+import { Button, Text, LineEdit } from "../../widgets.slint";
+
+export component LoginPanel inherits PanelView {
+    in property <bool> enabled: true;
+    in property <string> error_message <=> error.text;
+    in property <bool> email_error <=> email.error;
+    in property <bool> password_error <=> password.error;
+
+	out property <string> email <=> email.text;
+	out property <string> password <=> password.text;
+	callback action <=> button.clicked;
+
+    Text {
+        text: "Login";
+        horizontal-alignment: left;
+    }
+    email := LineEdit {
+        placeholder-text: "email";
+        enabled: root.enabled;
+        init => { self.focus() }
+        accepted(text) => { button.clicked() }
+    }
+    password := LineEdit {
+        placeholder-text: "password";
+        enabled: root.enabled;
+        input-type: InputType.password;
+        accepted(text) => { button.clicked() }
+    }
+    button := Button {
+        text: "login";
+        enabled: root.enabled;
+    }
+    error := ErrorText {}
+}

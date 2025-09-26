@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Salix Verification Code{% endblock %}
+
+{% block head %}
+<style>
+    /* Overriding base body styles for better email client compatibility */
+    body {
+        height: auto;
+        display: block;
+        justify-content: initial;
+        align-items: initial;
+        font-family: sans-serif;
+        padding: 0;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: {{ crate::pages::palette::BACKGROUND2 }};
+        color: {{ crate::pages::palette::TEXT1 }};
+    }
+    .header {
+        text-align: center;
+        padding: 20px 0;
+    }
+    .header h1 {
+        color: {{ crate::pages::palette::ACCENT }};
+        margin: 0;
+        font-size: 3rem;
+    }
+    .content {
+        padding: 20px;
+        text-align: center;
+    }
+    .content p {
+        color: {{ crate::pages::palette::TEXT2 }};
+        font-size: 16px;
+        line-height: 1.5;
+    }
+    .cta-button {
+        display: inline-block;
+        padding: 15px 30px;
+        background-color: {{ crate::pages::palette::ACCENT }};
+        color: {{ crate::pages::palette::BACKGROUND1 }};
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 18px;
+        font-weight: bold;
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="header">
+        <h1>salix</h1>
+    </div>
+    <div class="content">
+        <h2>Welcome!</h2>
+        <p>Almost ready! Click the button below to get your 4-digit code and create your account.</p>
+        <a href="{{ verification_link }}" class="cta-button">Get Your Code</a>
+        <p style="font-size: 12px; color: {{ crate::pages::palette::TEXT2 }}; margin-top: 30px;">If you didn't request this email, you can safely ignore it.</p>
+    </div>
+</div>
+{% endblock %}

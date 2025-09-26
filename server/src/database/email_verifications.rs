@@ -96,10 +96,12 @@ impl<D: ExecutorHack> Database<D> {
 		};
 
 		if res.attempts >= MAX_VERIFICATION_ATTEMPTS {
+			transaction.commit().await?;
 			return Ok(Err(VerifyEmailError::TooManyAttempts));
 		}
 
 		if res.code as u32 != code {
+			transaction.commit().await?;
 			return Ok(Err(VerifyEmailError::IncorrectCode));
 		}
 

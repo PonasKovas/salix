@@ -1,0 +1,56 @@
+import { Palette } from "../../palette.slint";
+import { Text } from "../../widgets.slint";
+
+export component PanelView inherits VerticalLayout {
+    in property <string> switch_text <=> switch.text;
+    callback switch_clicked <=> switch_toucharea.clicked;
+
+    width: 50%;
+    padding: 15px;
+    alignment: start;
+    spacing: 7px;
+
+    // main panel
+    Rectangle {
+        background: Palette.background2;
+        vertical-stretch: 1;
+
+        VerticalLayout {
+            padding: 7px;
+            padding-left: 20px;
+            padding-right: 20px;
+            spacing: 10px;
+
+            @children
+        }
+    }
+
+    // switch panel text
+    HorizontalLayout {
+        alignment: end;
+        switch := Text {
+            font-weight: 700;
+            color: Palette.accent;
+
+            switch_toucharea := TouchArea {
+                mouse-cursor: pointer;
+            }
+        }
+    }
+}
+
+export component ErrorText inherits Text {
+    color: Palette.error;
+    horizontal-alignment: center;
+    wrap: word-wrap;
+
+    opacity: 0;
+    animate opacity {
+        duration: 200ms;
+        easing: ease;
+    }
+
+    changed text => {
+        self.opacity = self.text == "" ? 0 : 1;
+    }
+}

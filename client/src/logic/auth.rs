@@ -1,3 +1,4 @@
+use protocol::auth::Request;
 use protocol::auth::v1 as auth;
 use thiserror::Error;
 use uuid::Uuid;
@@ -10,16 +11,14 @@ pub enum LoginError {
 	Api(#[from] auth::Error),
 }
 
-pub async fn login(email: String, password: String) -> Result<Uuid, LoginError> {
+const BASE_API_URL: &'static str = "http://localhost:3000/auth/v1";
+
+async fn make_request<R: Request>(req: &R) -> Result<R::Response, LoginError> {
+	let url = format!("{BASE_API_URL}{}", R::PATH);
+
 	let client = reqwest::Client::new();
 
-	let data = auth::LoginRequest { email, password };
-
-	let res = client
-		.post("http://localhost:3000/auth/v1/login")
-		.json(&data)
-		.send()
-		.await?;
+	let res = client.post(url).json(req).send().await?;
 
 	if !res.status().is_success() {
 		let error = res.json::<auth::Error>().await?;
@@ -27,31 +26,37 @@ pub async fn login(email: String, password: String) -> Result<Uuid, LoginError> 
 		return Err(LoginError::Api(error));
 	}
 
-	let response_data = res.json::<auth::LoginSuccess>().await?;
-
-	Ok(response_data.auth_token)
+	Ok(res.json::<R::Response>().await?)
 }
 
-pub async fn register(email: String, username: String, password: String) -> Result<(), LoginError> {
-	let client = reqwest::Client::new();
+pub async fn login(email: String, password: String) -> Result<Uuid, LoginError> {
+	make_request(&auth::LoginRequest { email, password })
+		.await
+		.map(|success| success.auth_token)
+}
 
-	let data = auth::NewAccountRequest {
+pub async fn start_verify_email(email: String) -> Result<(), LoginError> {
+	make_request(&auth::StartEmailVerifyRequest { email }).await
+}
+
+/// returns the registration id
+pub async fn verify_email(email: String, code: u32) -> Result<Uuid, LoginError> {
+	make_request(&auth::VerifyEmailRequest { email, code })
+		.await
+		.map(|response| response.registration_id)
+}
+
+/// returns an auth token
+pub async fn finalize(
+	registration_id: Uuid,
+	username: String,
+	password: String,
+) -> Result<Uuid, LoginError> {
+	make_request(&auth::FinalizeNewAccountRequest {
+		registration_id,
 		username,
-		email,
 		password,
-	};
-
-	let res = client
-		.post("http://localhost:3000/auth/v1/new")
-		.json(&data)
-		.send()
-		.await?;
-
-	if !res.status().is_success() {
-		let error = res.json::<auth::Error>().await?;
-
-		return Err(LoginError::Api(error));
-	}
-
-	Ok(())
+	})
+	.await
+	.map(|response| response.auth_token)
 }

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Salix Account Notice{% endblock %}
+
+{% block head %}
+<style>
+    /* Overriding base body styles for better email client compatibility */
+    body {
+        height: auto;
+        display: block;
+        justify-content: initial;
+        align-items: initial;
+        font-family: sans-serif;
+        padding: 0;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: {{ crate::pages::palette::BACKGROUND2 }};
+        color: {{ crate::pages::palette::TEXT1 }};
+    }
+    .header {
+        text-align: center;
+        padding: 20px 0;
+    }
+    .header h1 {
+        color: {{ crate::pages::palette::ACCENT }};
+        margin: 0;
+        font-size: 3rem;
+    }
+    .content {
+        padding: 20px;
+        text-align: center;
+    }
+    .content h2 {
+        color: {{ crate::pages::palette::TEXT1 }};
+        margin-bottom: 15px;
+    }
+    .content p {
+        color: {{ crate::pages::palette::TEXT2 }};
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0 auto;
+        max-width: 450px; /* Constrain line width for readability */
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="header">
+        <h1>salix</h1>
+    </div>
+    <div class="content">
+        <h2>Looks like you're already a member.</h2>
+        <p>
+            We received a request to create a Salix account using this email address, but it's already registered.
+        </p>
+        <p style="margin-top: 20px;">
+            If this was you, please try logging in. If you've forgotten your password, you can use the password reset option on the login screen.
+        </p>
+        <p style="font-size: 12px; color: {{ crate::pages::palette::TEXT2 }}; margin-top: 30px;">
+            If you did not make this request, you can safely ignore this email.
+        </p>
+    </div>
+</div>
+{% endblock %}

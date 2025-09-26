@@ -18,9 +18,9 @@ pub enum Error {
 	Unauthorized,
 	#[error("username taken")]
 	UsernameConflict,
-	#[error("username taken")]
+	#[error("incorrect code")]
 	IncorrectCode,
-	#[error("username taken")]
+	#[error("too many attempts")]
 	TooManyAttempts,
 	/// the client is responsible for validating requirements such as
 	/// the email being valid, or the username being long enough, etc

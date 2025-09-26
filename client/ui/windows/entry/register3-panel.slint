@@ -1,0 +1,43 @@
+import { Palette } from "../../palette.slint";
+import { PanelView, ErrorText } from "panel-view.slint";
+import { Button, Text, LineEdit } from "../../widgets.slint";
+
+export component Register3Panel inherits PanelView {
+	in property <bool> enabled: true;
+	in property <string> error_message <=> error.text;
+    in property <bool> username_error <=> username.error;
+    in property <bool> password_error <=> password.error;
+    in property <bool> password2_error <=> password2.error;
+
+	in-out property <string> username <=> username.text;
+    in-out property <string> password <=> password.text;
+    in-out property <string> password2 <=> password2.text;
+	callback action <=> button.clicked;
+
+    Text {
+        text: "New account creation";
+        horizontal-alignment: left;
+    }
+    username := LineEdit {
+        placeholder-text: "username";
+        enabled: root.enabled;
+        accepted(text) => { button.clicked() }
+    }
+    password := LineEdit {
+        placeholder-text: "password";
+        input-type: InputType.password;
+        enabled: root.enabled;
+        accepted(text) => { button.clicked() }
+    }
+    password2 := LineEdit {
+        placeholder-text: "password";
+        input-type: InputType.password;
+        enabled: root.enabled;
+        accepted(text) => { button.clicked() }
+    }
+    button := Button {
+        text: "create";
+        enabled: root.enabled;
+    }
+    error := ErrorText {}
+}
