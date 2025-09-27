@@ -1,5 +1,16 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
+CREATE TABLE cleanup_log (
+    table_name VARCHAR(128) PRIMARY KEY NOT NULL,
+    last_cleaned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO cleanup_log (table_name)
+VALUES
+    ('email_verifications'),
+    ('registrations'),
+    ('active_sessions');
+
 CREATE TABLE email_verifications (
     email citext PRIMARY KEY,
     -- private id is used in the email confirmation link to get the code

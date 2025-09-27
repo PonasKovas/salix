@@ -15,6 +15,7 @@ use update_listener::UpdateListener;
 pub mod cmd_args;
 pub mod config;
 pub mod database;
+pub mod db_cleaner;
 pub mod email;
 pub mod endpoints;
 pub mod logging;
@@ -52,6 +53,8 @@ pub async fn main() -> Result<()> {
 		email: Email::init(&config)?,
 		config,
 	};
+
+	db_cleaner::init_cleaner(state.clone()).await;
 
 	let app = Router::new()
 		.nest("/auth", auth_routes())
