@@ -16,7 +16,7 @@ struct State {
 
 enum RegistrationState {
 	None,
-	VerifyingEmail { email: String },
+	VerifyingEmail { email: String, attempts: u32 },
 	Finalizing { registration_id: Uuid },
 }
 
@@ -88,6 +88,7 @@ pub fn entry_window() -> anyhow::Result<()> {
 
 				state.lock().unwrap().registration = RegistrationState::VerifyingEmail {
 					email: email.to_string(),
+					attempts: 0,
 				};
 
 				entry.set_current_panel(2);
@@ -106,7 +107,17 @@ pub fn entry_window() -> anyhow::Result<()> {
 		slint::spawn_local(
 			async move {
 				let email = match &state.lock().unwrap().registration {
-					RegistrationState::VerifyingEmail { email } => email.clone(),
+					RegistrationState::VerifyingEmail { email, attempts } => {
+						if *attempts >= 3 {
+							entry.invoke_set_loading(false);
+							entry.set_register2_error_message(
+								"too many attempts".to_shared_string(),
+							);
+							return;
+						}
+
+						email.clone()
+					}
 					_ => panic!("not supposed to be in this state"),
 				};
 
@@ -118,6 +129,16 @@ pub fn entry_window() -> anyhow::Result<()> {
 
 				let registration_id = match res {
 					Err(e) => {
+						// if its an incorrect code, increase local attempts counter
+						if matches!(e, LoginError::Api(protocol::auth::v1::Error::IncorrectCode)) {
+							match &mut state.lock().unwrap().registration {
+								RegistrationState::VerifyingEmail { email: _, attempts } => {
+									*attempts += 1;
+								}
+								_ => panic!("not supposed to be in this state"),
+							}
+						}
+
 						println!("{e:?}");
 						entry.set_register2_error_message(e.to_shared_string());
 						return;

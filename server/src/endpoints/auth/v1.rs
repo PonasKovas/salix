@@ -148,10 +148,12 @@ async fn verify_email(
 	Json(request): Json<VerifyEmailRequest>,
 ) -> Result<Json<VerifyEmailResponse>, Error> {
 	if let Err(e) = state.db.verify_email(&request.email, request.code).await? {
+		// replace all errors with IncorrectCode as otherwise we are leaking whether the code was even generated
+		// (and therefore whether the email is registered on salix)
 		match e {
 			VerifyEmailError::IncorrectCode => return Err(v1::Error::IncorrectCode.into()),
-			VerifyEmailError::TooManyAttempts => return Err(v1::Error::TooManyAttempts.into()),
-			VerifyEmailError::Invalid => return Err(v1::Error::InvalidRequest.into()),
+			VerifyEmailError::TooManyAttempts => return Err(v1::Error::IncorrectCode.into()),
+			VerifyEmailError::Invalid => return Err(v1::Error::IncorrectCode.into()),
 		}
 	}
 
