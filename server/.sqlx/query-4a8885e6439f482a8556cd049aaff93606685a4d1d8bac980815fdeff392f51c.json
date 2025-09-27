@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT table_name\n\t    FROM cleanup_log\n\t    WHERE last_cleaned_at + ('1 min'::interval * $1) <= NOW()\n\t    FOR UPDATE SKIP LOCKED",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "table_name",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log",
+            "name": "table_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4a8885e6439f482a8556cd049aaff93606685a4d1d8bac980815fdeff392f51c"
+}

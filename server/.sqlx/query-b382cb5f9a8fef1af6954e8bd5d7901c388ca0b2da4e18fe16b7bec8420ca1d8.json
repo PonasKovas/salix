@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM registrations WHERE expires_at < NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "b382cb5f9a8fef1af6954e8bd5d7901c388ca0b2da4e18fe16b7bec8420ca1d8"
+}

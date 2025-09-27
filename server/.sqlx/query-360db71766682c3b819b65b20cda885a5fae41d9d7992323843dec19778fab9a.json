@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE cleanup_log SET last_cleaned_at = NOW() WHERE table_name = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "360db71766682c3b819b65b20cda885a5fae41d9d7992323843dec19778fab9a"
+}
