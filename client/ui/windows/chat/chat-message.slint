@@ -1,0 +1,31 @@
+import { Palette } from "../../palette.slint";
+import { Text } from "../../widgets.slint";
+
+export struct MessageData {
+    author: string,
+    text: string,
+}
+
+export component Message {
+    in property <MessageData> data;
+
+    Rectangle {
+    	width: 100%;
+
+    	HorizontalLayout {
+    		padding: 5px;
+    		spacing: 2px;
+
+    		Text {
+    			text: data.author;
+    			color: Palette.accent;
+    			horizontal-stretch: 0;
+    		}
+    		Text {
+    			text: data.text;
+    			color: Palette.text1;
+    			horizontal-stretch: 1;
+    		}
+    	}
+    }
+}

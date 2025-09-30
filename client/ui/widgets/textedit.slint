@@ -1,0 +1,81 @@
+import { Palette } from "../palette.slint";
+import { ScrollView } from "scrollview.slint";
+
+export component TextEdit inherits Rectangle {
+    in-out property <string> text <=> input.text;
+    in property <length> text-padding: 5px;
+    in property <string> placeholder;
+    in property <length> font-size: 12px;
+
+    height: Math.clamp(
+        input.preferred-height + 2*text-padding,
+        self.min-height,
+        self.max-height
+    );
+
+    background: Palette.background2;
+
+    ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: "Cut";
+                activated => {
+                    input.cut();
+                }
+            }
+            MenuItem {
+                title: "Copy";
+                enabled: !root.text.is-empty;
+                activated => {
+                    input.copy();
+                }
+            }
+            MenuItem {
+                title: "Paste";
+                activated => {
+                    input.paste();
+                }
+            }
+            MenuItem {
+                title: "Select All";
+                enabled: !root.text.is-empty;
+                activated => {
+                    input.select-all();
+                }
+            }
+        }
+    }
+
+    scrollview := ScrollView {
+        viewport-height: inner_scroll.preferred-height;
+        viewport-width: root.width;
+        height: root.height;
+        horizontal-scrollbar-policy: always-off;
+
+        inner_scroll := VerticalLayout {
+            padding: root.text-padding;
+            input := TextInput {
+                single-line: false;
+                font-size: root.font-size;
+
+                // placeholder
+                Text {
+                    x: 0;
+                    color: Palette.text2;
+                    text: root.placeholder;
+                    font-size: root.font-size;
+                    visible: root.text == "";
+                }
+
+                cursor-position-changed(cpos) => {
+                    if (cpos.y < -scrollview.viewport-y) {
+                        scrollview.viewport-y = -max(cpos.y, 0);
+                    } else if (cpos.y + scrollview.viewport-y + 2*root.font-size > scrollview.visible-height) {
+                        scrollview.viewport-y = -min(cpos.y + 2*root.font-size - scrollview.visible-height, self.height);
+                    }
+                }
+            }
+        } // cpos + viewport + 20 + 12 = visible
+        // -viewport = cpos + 20 + 12 - visible
+    }
+}

@@ -1,0 +1,37 @@
+import { Palette } from "../../palette.slint";
+import { Button, LineEdit, TextEdit } from "../../widgets.slint";
+
+export component ChatInput inherits Rectangle {
+    //in-out property <string> text <=> edit.text;
+
+    //callback on_send <=> button.clicked;
+
+    background: Palette.background2;
+
+    HorizontalLayout {
+        spacing: 5px;
+
+        edit := TextEdit {
+            //placeholder-text: "Message";
+            //init => { self.focus() }
+            placeholder: "Message";
+            min-height: 32px;
+            max-height: 90px;
+        }
+        
+        VerticalLayout {
+            alignment: start;
+
+            Image {
+                source: @image-url("../../images/save.svg");
+                width: 32px;
+                height: 32px;
+                colorize: Palette.accent;
+
+            }
+            //button := Button {
+            //    text: "Send";
+            //}
+        }
+    }
+}

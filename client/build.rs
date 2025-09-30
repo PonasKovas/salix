@@ -1,5 +1,7 @@
 use std::{error::Error, process::Stdio};
 
+use slint_build::CompilerConfiguration;
+
 fn main() {
 	println!(
 		"cargo:rustc-env=GIT_COMMIT_HASH={}",
@@ -25,7 +27,8 @@ fn get_commit_hash() -> Result<String, Box<dyn Error>> {
 }
 
 fn build_slint() -> Result<(), slint_build::CompileError> {
-	slint_build::compile("ui/windows.slint")?;
+	let config = CompilerConfiguration::default().with_style("cupertino-dark".to_owned());
+	slint_build::compile_with_config("ui/windows.slint", config)?;
 
 	Ok(())
 }

@@ -1,10 +1,12 @@
 import { Palette } from "../palette.slint";
-import { Animation } from "_animation.slint";
+import { Animation } from "animation.slint";
 
 export component Button inherits TouchArea {
     in property <string> text;
 
     // for animating the underline on clicks
+    // stage1 is when the bar appears and increases in width until 100%
+    // stage1 is when it decreases in height and opacity
     property <duration> animation_stage1: 150ms;
     property <duration> animation_stage2: 1000ms;
     property <duration> animation_duration: animation_stage1 + animation_stage2;
@@ -20,6 +22,7 @@ export component Button inherits TouchArea {
     mouse-cursor: pointer;
 
     rect := Rectangle {
+        min-width: 60px;
         border-radius: 7px;
         background: Palette.background1;
 
