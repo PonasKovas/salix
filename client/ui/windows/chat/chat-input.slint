@@ -1,10 +1,10 @@
 import { Palette } from "../../palette.slint";
-import { Button, LineEdit, TextEdit } from "../../widgets.slint";
+import { LineEdit, TextEdit } from "../../widgets.slint";
 
 export component ChatInput inherits Rectangle {
-    //in-out property <string> text <=> edit.text;
+    in-out property <string> text <=> edit.text;
 
-    //callback on_send <=> button.clicked;
+    callback on_send(message: string);
 
     background: Palette.background2;
 
@@ -12,11 +12,14 @@ export component ChatInput inherits Rectangle {
         spacing: 5px;
 
         edit := TextEdit {
-            //placeholder-text: "Message";
-            //init => { self.focus() }
+            init => { self.has-focus = true; }
             placeholder: "Message";
             min-height: 32px;
             max-height: 90px;
+            accepted(text) => {
+                on_send(text);
+                self.text = "";
+            }
         }
         
         VerticalLayout {
@@ -26,12 +29,20 @@ export component ChatInput inherits Rectangle {
                 source: @image-url("../../images/save.svg");
                 width: 32px;
                 height: 32px;
-                colorize: Palette.accent;
+                colorize: send_toucharea.pressed ? Palette.text1 : Palette.accent;
 
+                animate colorize {
+                    duration: 100ms;
+                }
+
+                send_toucharea := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        on_send(edit.text);
+                        edit.text = "";
+                    }
+                }
             }
-            //button := Button {
-            //    text: "Send";
-            //}
         }
     }
 }

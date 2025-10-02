@@ -4,7 +4,7 @@ use crate::{
 };
 use async_compat::CompatExt;
 use email_address::EmailAddress;
-use slint::ToSharedString;
+use slint::{Global, ToSharedString};
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 

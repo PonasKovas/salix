@@ -11,6 +11,8 @@ export component ChatWindow inherits Window {
 		{author: "Another User", text: "LOL"},
 	];
 
+	callback on_send <=> input.on_send;
+
 	title: "Salix";
     background: Palette.background1;
     min-height: 600px;
@@ -28,8 +30,6 @@ export component ChatWindow inherits Window {
 	            }
     		}
     	}
-    	ChatInput {
-    		
-    	}
+    	input := ChatInput {}
     }
 }

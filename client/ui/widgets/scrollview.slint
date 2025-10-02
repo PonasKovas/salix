@@ -126,8 +126,8 @@ export component ScrollView {
         width: self.has-hover ? 12px : 8px;
         height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
         horizontal: false;
-        maximum:  flickable.viewport-height - flickable.height;
-        page-size:  flickable.height;
+        maximum: flickable.viewport-height - flickable.height;
+        page-size: flickable.height;
 
         scrolled => {root.scrolled()}
     }
@@ -139,8 +139,8 @@ export component ScrollView {
         y: parent.height - self.height;
         x: 0;
         horizontal: true;
-        maximum:  flickable.viewport-width - flickable.width;
-        page-size:  flickable.width;
+        maximum: flickable.viewport-width - flickable.width;
+        page-size: flickable.width;
 
         scrolled => {root.scrolled()}
     }

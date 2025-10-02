@@ -6,6 +6,7 @@ export component TextEdit inherits Rectangle {
     in property <length> text-padding: 5px;
     in property <string> placeholder;
     in property <length> font-size: 12px;
+    in-out property <bool> has-focus;
 
     height: Math.clamp(
         input.preferred-height + 2*text-padding,
@@ -14,6 +15,16 @@ export component TextEdit inherits Rectangle {
     );
 
     background: Palette.background2;
+
+    changed has-focus => {
+        if has-focus {
+            input.focus();
+        } else {
+            input.clear-focus();
+        }
+    }
+
+    callback accepted(text: string);
 
     ContextMenuArea {
         Menu {
@@ -57,6 +68,11 @@ export component TextEdit inherits Rectangle {
             input := TextInput {
                 single-line: false;
                 font-size: root.font-size;
+                color: Palette.text1;
+                selection-background-color: Palette.accent;
+                selection-foreground-color: self.color;
+                wrap: word-wrap;
+                page-height: scrollview.visible-height;
 
                 // placeholder
                 Text {
@@ -67,6 +83,7 @@ export component TextEdit inherits Rectangle {
                     visible: root.text == "";
                 }
 
+                // for scrolling the ScrollView automatically as you type
                 cursor-position-changed(cpos) => {
                     if (cpos.y < -scrollview.viewport-y) {
                         scrollview.viewport-y = -max(cpos.y, 0);
@@ -74,8 +91,22 @@ export component TextEdit inherits Rectangle {
                         scrollview.viewport-y = -min(cpos.y + 2*root.font-size - scrollview.visible-height, self.height);
                     }
                 }
+
+                key-pressed(event) => {
+                    if event.text == "\n" {
+                        // newline
+                        if event.modifiers.shift {
+                            // shift+enter will just type a literal newline
+                            return reject;
+                        }
+                        
+                        root.accepted(self.text);
+                        return accept;
+                    }
+
+                    return reject;
+                }
             }
-        } // cpos + viewport + 20 + 12 = visible
-        // -viewport = cpos + 20 + 12 - visible
+        }
     }
 }
