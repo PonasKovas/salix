@@ -1,6 +1,5 @@
-use std::{error::Error, process::Stdio};
-
 use slint_build::CompilerConfiguration;
+use std::{error::Error, process::Stdio};
 
 fn main() {
 	println!(

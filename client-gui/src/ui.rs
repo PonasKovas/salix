@@ -1,12 +1,9 @@
-use crate::{
-	crate_version::version,
-	logic::auth::{self, LoginError},
-};
+use crate::crate_version::version;
 use async_compat::CompatExt;
-use email_address::EmailAddress;
+use client::auth::{self, Error};
 use slint::{Global, ToSharedString};
-use std::sync::{Arc, Mutex};
-use uuid::Uuid;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 slint::include_modules!();
 
@@ -16,8 +13,8 @@ struct State {
 
 enum RegistrationState {
 	None,
-	VerifyingEmail { email: String, attempts: u32 },
-	Finalizing { registration_id: Uuid },
+	VerifyingEmail(auth::EmailVerifier),
+	Finalizing(auth::CreateAccount),
 }
 
 pub fn entry_window() -> anyhow::Result<()> {
@@ -42,12 +39,11 @@ pub fn entry_window() -> anyhow::Result<()> {
 						println!("LOGGED IN. auth token: {auth_token}");
 					}
 					Err(e) => {
+						println!("{e:?}");
+
 						entry.set_login_error_message(e.to_shared_string());
 
-						if matches!(
-							e,
-							auth::LoginError::Api(protocol::auth::v1::Error::Unauthorized)
-						) {
+						if matches!(e, auth::Error::Api(protocol::auth::v1::Error::Unauthorized)) {
 							entry.set_login_email_error(true);
 							entry.set_login_password_error(true);
 						}
@@ -67,30 +63,29 @@ pub fn entry_window() -> anyhow::Result<()> {
 		let state = state_weak.upgrade().unwrap();
 		let entry = entry_weak.unwrap();
 
-		if !EmailAddress::is_valid(&email) {
-			entry.set_register1_email_error(true);
-			entry.set_register1_error_message("invalid email".into());
-			entry.invoke_set_loading(false);
-			return;
-		}
-
 		slint::spawn_local(
 			async move {
-				let res = auth::start_verify_email(email.to_string()).await;
+				let res = auth::register(email.to_string()).await;
 
 				entry.invoke_set_loading(false);
 
-				if let Err(e) = res {
-					println!("{e:?}");
-					entry.set_register1_error_message(e.to_shared_string());
-					return;
-				}
+				let verifier = match res {
+					Ok(x) => x,
+					Err(e) => {
+						println!("{e:?}");
 
-				state.lock().unwrap().registration = RegistrationState::VerifyingEmail {
-					email: email.to_string(),
-					attempts: 0,
+						if matches!(e, auth::Error::InvalidEmail) {
+							entry.set_register1_email_error(true);
+						}
+
+						entry.set_register1_error_message(e.to_shared_string());
+						return;
+					}
 				};
 
+				state.lock().await.registration = RegistrationState::VerifyingEmail(verifier);
+
+				// move to the next panel
 				entry.set_current_panel(2);
 			}
 			.compat(),
@@ -106,49 +101,31 @@ pub fn entry_window() -> anyhow::Result<()> {
 
 		slint::spawn_local(
 			async move {
-				let email = match &state.lock().unwrap().registration {
-					RegistrationState::VerifyingEmail { email, attempts } => {
-						if *attempts >= 3 {
-							entry.invoke_set_loading(false);
-							entry.set_register2_error_message(
-								"too many attempts".to_shared_string(),
-							);
-							return;
-						}
+				let mut state = state.lock().await;
 
-						email.clone()
-					}
+				let verifier = match &mut state.registration {
+					RegistrationState::VerifyingEmail(verifier) => verifier,
 					_ => panic!("not supposed to be in this state"),
 				};
 
 				let code: u32 = code.parse().unwrap();
 
-				let res = auth::verify_email(email, code).await;
+				let res = verifier.verify(code).await;
 
 				entry.invoke_set_loading(false);
 
-				let registration_id = match res {
+				let finalizer = match res {
+					Ok(x) => x,
 					Err(e) => {
-						// if its an incorrect code, increase local attempts counter
-						if matches!(e, LoginError::Api(protocol::auth::v1::Error::IncorrectCode)) {
-							match &mut state.lock().unwrap().registration {
-								RegistrationState::VerifyingEmail { email: _, attempts } => {
-									*attempts += 1;
-								}
-								_ => panic!("not supposed to be in this state"),
-							}
-						}
-
 						println!("{e:?}");
 						entry.set_register2_error_message(e.to_shared_string());
 						return;
 					}
-					Ok(id) => id,
 				};
 
-				state.lock().unwrap().registration =
-					RegistrationState::Finalizing { registration_id };
+				state.registration = RegistrationState::Finalizing(finalizer);
 
+				// move to the next panel
 				entry.set_current_panel(3);
 			}
 			.compat(),
@@ -164,14 +141,16 @@ pub fn entry_window() -> anyhow::Result<()> {
 
 		slint::spawn_local(
 			async move {
-				let registration_id = match &state.lock().unwrap().registration {
-					RegistrationState::Finalizing { registration_id } => *registration_id,
+				let state = state.lock().await;
+
+				let finalizer = match &state.registration {
+					RegistrationState::Finalizing(finalizer) => finalizer,
 					_ => panic!("not supposed to be in this state"),
 				};
 
-				let res =
-					auth::finalize(registration_id, username.to_string(), password.to_string())
-						.await;
+				let res = finalizer
+					.finalize(username.to_string(), password.to_string())
+					.await;
 
 				entry.invoke_set_loading(false);
 
@@ -180,7 +159,7 @@ pub fn entry_window() -> anyhow::Result<()> {
 						println!("{e:?}");
 						entry.set_register3_error_message(e.to_shared_string());
 
-						if let LoginError::Api(protocol::auth::v1::Error::UsernameConflict) = e {
+						if let Error::Api(protocol::auth::v1::Error::UsernameConflict) = e {
 							entry.set_register3_username_error(true);
 						}
 						return;
@@ -188,8 +167,9 @@ pub fn entry_window() -> anyhow::Result<()> {
 					Ok(id) => id,
 				};
 
-				println!("LOGGED IN. auth token: {auth_token}");
+				println!("LOGGED IN. auth token: {auth_token:?}");
 
+				// move to the next panel
 				entry.set_current_panel(4);
 			}
 			.compat(),

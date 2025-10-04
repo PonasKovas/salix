@@ -20,8 +20,6 @@ pub enum Error {
 	UsernameConflict,
 	#[error("incorrect code")]
 	IncorrectCode,
-	#[error("too many attempts")]
-	TooManyAttempts,
 	/// the client is responsible for validating requirements such as
 	/// the email being valid, or the username being long enough, etc
 	#[error("invalid request")]

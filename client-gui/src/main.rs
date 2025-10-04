@@ -2,19 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use anyhow::{Context, Result};
-use protocol::{
-	S2C,
-	c2s::{Authenticate, SendMessage},
-	s2c::UserInfo,
-};
-use protocol_util::WebSocketExt;
-use tokio::io::{AsyncBufReadExt, BufReader, stdin};
-use tokio_tungstenite::connect_async;
-use uuid::Uuid;
 
 mod crate_version;
-mod logic;
-mod protocol_util;
 mod ui;
 
 fn main() -> Result<()> {

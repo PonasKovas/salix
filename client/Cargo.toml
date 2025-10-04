@@ -6,15 +6,12 @@ edition.workspace = true
 [dependencies]
 protocol = { path = "../protocol" }
 tokio-tungstenite.workspace = true
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true, features = [] }
 futures.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
 thiserror.workspace = true
-slint.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 async-compat.workspace = true
 email_address.workspace = true
-
-[build-dependencies]
-slint-build.workspace = true
+keyring = { workspace = true, features = ["linux-native-async-persistent", "windows-native", "apple-native", "tokio", "crypto-rust"] }

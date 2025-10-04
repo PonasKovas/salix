@@ -1,0 +1,17 @@
+[package]
+name = "client-gui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+client = { path = "../client" }
+protocol = { path = "../protocol" }
+tokio = { workspace = true, features = ["sync"] }
+futures.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+slint.workspace = true
+async-compat.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true

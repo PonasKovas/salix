@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["client", "protocol", "server", "tokio-pubsub"]
+members = ["client", "client-gui", "protocol", "server", "tokio-pubsub"]
 
 [workspace.package]
 version = "0.1.0"
@@ -39,3 +39,4 @@ sha2 = "0.10.9"
 base64 = "0.22.1"
 askama = "0.14.0"
 css-inline = "0.17.0"
+keyring = "3.6.3"
