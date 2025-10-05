@@ -1,16 +1,43 @@
-// use anyhow::{Context, Result};
-// use protocol::{
-// 	S2C,
-// 	c2s::{Authenticate, SendMessage},
-// 	s2c::UserInfo,
-// };
-// use protocol_util::WebSocketExt;
-// use tokio::io::{AsyncBufReadExt, BufReader};
-// use tokio_tungstenite::connect_async;
-// use uuid::Uuid;
+pub use auth::Auth;
+use config::Config;
+pub use config_manager::ConfigManager;
+use std::sync::{Arc, Mutex};
 
 pub mod auth;
-mod protocol_util;
+pub mod auth_token_store;
+pub mod config;
+mod config_manager;
+mod protocol_util; // todo wtf is this? DELET
+
+#[derive(Debug, Clone)]
+pub struct Client {
+	inner: Arc<InnerClient>,
+	pub config: ConfigManager,
+	pub auth: Auth,
+}
+
+#[derive(Debug)]
+struct InnerClient {
+	config: Mutex<Config>,
+}
+
+impl Client {
+	pub fn with_config(config: Config) -> Self {
+		let inner = Arc::new(InnerClient {
+			config: Mutex::new(config),
+		});
+
+		Self {
+			config: ConfigManager {
+				inner: Arc::clone(&inner),
+			},
+			auth: Auth {
+				client: Arc::clone(&inner),
+			},
+			inner,
+		}
+	}
+}
 
 // #[tokio::main]
 // async fn main() -> Result<()> {

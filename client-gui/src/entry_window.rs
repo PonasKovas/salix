@@ -1,26 +1,18 @@
-use crate::crate_version::version;
+use crate::{EntryWindow, config::config, crate_version::version};
 use async_compat::CompatExt;
 use client::auth::{self, Error};
-use slint::{Global, ToSharedString};
+use slint::{ComponentHandle, ToSharedString};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-slint::include_modules!();
-
-struct State {
-	registration: RegistrationState,
-}
-
-enum RegistrationState {
+enum State {
 	None,
 	VerifyingEmail(auth::EmailVerifier),
 	Finalizing(auth::CreateAccount),
 }
 
 pub fn entry_window() -> anyhow::Result<()> {
-	let state = Arc::new(Mutex::new(State {
-		registration: RegistrationState::None,
-	}));
+	let state = Arc::new(Mutex::new(State::None));
 
 	let entry = EntryWindow::new()?;
 
@@ -34,9 +26,12 @@ pub fn entry_window() -> anyhow::Result<()> {
 		let entry = entry_weak.unwrap();
 		slint::spawn_local(
 			async move {
-				match auth::login(email.to_string(), password.to_string()).await {
+				match auth::login(&config(), email.to_string(), password.to_string()).await {
 					Ok(auth_token) => {
-						println!("LOGGED IN. auth token: {auth_token}");
+						println!("LOGGED IN. auth token: {auth_token:?}");
+						if let Err(e) = auth::store_auth_token(auth_token) {
+							println!("error storing auth token: {e:?}");
+						}
 					}
 					Err(e) => {
 						println!("{e:?}");
@@ -57,15 +52,15 @@ pub fn entry_window() -> anyhow::Result<()> {
 		.unwrap();
 	});
 
-	let state_weak = Arc::downgrade(&state);
+	let state_clone = Arc::clone(&state);
 	let entry_weak = entry.as_weak();
 	entry.on_register1(move |email| {
-		let state = state_weak.upgrade().unwrap();
+		let state = Arc::clone(&state_clone);
 		let entry = entry_weak.unwrap();
 
 		slint::spawn_local(
 			async move {
-				let res = auth::register(email.to_string()).await;
+				let res = auth::register(&config(), email.to_string()).await;
 
 				entry.invoke_set_loading(false);
 
@@ -83,7 +78,7 @@ pub fn entry_window() -> anyhow::Result<()> {
 					}
 				};
 
-				state.lock().await.registration = RegistrationState::VerifyingEmail(verifier);
+				*state.lock().await = State::VerifyingEmail(verifier);
 
 				// move to the next panel
 				entry.set_current_panel(2);
@@ -103,14 +98,14 @@ pub fn entry_window() -> anyhow::Result<()> {
 			async move {
 				let mut state = state.lock().await;
 
-				let verifier = match &mut state.registration {
-					RegistrationState::VerifyingEmail(verifier) => verifier,
+				let verifier = match &mut *state {
+					State::VerifyingEmail(verifier) => verifier,
 					_ => panic!("not supposed to be in this state"),
 				};
 
 				let code: u32 = code.parse().unwrap();
 
-				let res = verifier.verify(code).await;
+				let res = verifier.verify(&config(), code).await;
 
 				entry.invoke_set_loading(false);
 
@@ -123,7 +118,7 @@ pub fn entry_window() -> anyhow::Result<()> {
 					}
 				};
 
-				state.registration = RegistrationState::Finalizing(finalizer);
+				*state = State::Finalizing(finalizer);
 
 				// move to the next panel
 				entry.set_current_panel(3);
@@ -143,13 +138,13 @@ pub fn entry_window() -> anyhow::Result<()> {
 			async move {
 				let state = state.lock().await;
 
-				let finalizer = match &state.registration {
-					RegistrationState::Finalizing(finalizer) => finalizer,
+				let finalizer = match &*state {
+					State::Finalizing(finalizer) => finalizer,
 					_ => panic!("not supposed to be in this state"),
 				};
 
 				let res = finalizer
-					.finalize(username.to_string(), password.to_string())
+					.finalize(&config(), username.to_string(), password.to_string())
 					.await;
 
 				entry.invoke_set_loading(false);
@@ -168,6 +163,9 @@ pub fn entry_window() -> anyhow::Result<()> {
 				};
 
 				println!("LOGGED IN. auth token: {auth_token:?}");
+				if let Err(e) = auth::store_auth_token(auth_token) {
+					println!("error storing auth token: {e:?}");
+				}
 
 				// move to the next panel
 				entry.set_current_panel(4);

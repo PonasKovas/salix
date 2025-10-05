@@ -3,57 +3,28 @@
 
 use anyhow::{Context, Result};
 
+mod config;
 mod crate_version;
-mod ui;
+mod entry_window;
+
+slint::include_modules!();
 
 fn main() -> Result<()> {
-	ui::entry_window()?;
+	config::init().context("reading configuration")?;
+
+	match client::auth::get_stored_auth_token() {
+		Ok(Some(token)) => {
+			println!("already logged in: {token:?}");
+			// try to start the connection, if unauthorized then remove the stored token and show the entry window
+			return Ok(());
+		}
+		Ok(None) => {}
+		Err(e) => {
+			println!("error fetching stored auth token: {e:?}");
+		}
+	}
+
+	entry_window::entry_window()?;
 
 	Ok(())
 }
-
-// #[tokio::main]
-// async fn main() -> Result<()> {
-// 	let token: Uuid = std::env::var("AUTH_TOKEN")?.parse()?;
-
-// 	let (mut ws_stream, _) = connect_async("ws://127.0.0.1:3000/v1").await?;
-
-// 	ws_stream
-// 		.send_packet(Authenticate {
-// 			auth_token: *token.as_bytes(),
-// 		})
-// 		.await?;
-
-// 	let user_info: UserInfo = ws_stream.recv_packet().await?.context("user info packet")?;
-// 	println!("[S] [INFO] my username: {}", user_info.username);
-
-// 	let mut stdin = BufReader::new(stdin());
-// 	let mut line_buf = String::new();
-// 	loop {
-// 		tokio::select! {
-// 			packet = ws_stream.recv_packet() => {
-// 				let packet = match packet? {
-// 					Some(x) => x,
-// 					None => break,
-// 				};
-
-// 				match packet {
-// 					S2C::Error(error) => {
-// 						println!("[S] [INFO] SERVER ERROR: {error}");
-// 					},
-// 					S2C::NewMessage(new_message) => {
-// 						println!("[S] {}: {}", new_message.user, new_message.message);
-// 					},
-// 				}
-// 			}
-// 			r = stdin.read_line(&mut line_buf) => {
-// 				r?;
-// 				ws_stream.send_packet(SendMessage{ message: line_buf.trim().to_owned() }).await?;
-// 			},
-// 		}
-// 	}
-
-// 	ws_stream.close(None).await?;
-
-// 	Ok(())
-// }

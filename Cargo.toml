@@ -39,4 +39,7 @@ sha2 = "0.10.9"
 base64 = "0.22.1"
 askama = "0.14.0"
 css-inline = "0.17.0"
+# very very questionable dependency, slop confirmed
+# https://github.com/open-source-cooperative/keyring-rs/issues/273
 keyring = "3.6.3"
+directories = "6.0.0"
