@@ -1,4 +1,5 @@
 pub use auth::Auth;
+use auth::AuthToken;
 use config::Config;
 pub use config_manager::ConfigManager;
 use std::sync::{Arc, Mutex};
@@ -19,12 +20,14 @@ pub struct Client {
 #[derive(Debug)]
 struct InnerClient {
 	config: Mutex<Config>,
+	auth_token: Mutex<Option<AuthToken>>,
 }
 
 impl Client {
 	pub fn with_config(config: Config) -> Self {
 		let inner = Arc::new(InnerClient {
 			config: Mutex::new(config),
+			auth_token: Mutex::new(None),
 		});
 
 		Self {
@@ -36,6 +39,20 @@ impl Client {
 			},
 			inner,
 		}
+	}
+	pub fn set_auth_token(&self, token: AuthToken) {
+		*self.inner.auth_token.lock().unwrap() = Some(token);
+	}
+}
+
+impl InnerClient {
+	fn auth_token(&self) -> AuthToken {
+		self.auth_token
+			.lock()
+			.unwrap()
+			.as_ref()
+			.expect("auth token not set")
+			.clone()
 	}
 }
 

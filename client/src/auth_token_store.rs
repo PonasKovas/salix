@@ -22,7 +22,7 @@ pub fn get_stored_auth_token() -> Result<Option<AuthToken>, StoredAuthTokenError
 	Ok(Some(AuthToken(uuid)))
 }
 
-pub fn store_auth_token(token: AuthToken) -> Result<(), StoredAuthTokenError> {
+pub fn store_auth_token(token: &AuthToken) -> Result<(), StoredAuthTokenError> {
 	keyring::Entry::new("chat.salix", "auth_token")?.set_password(&token.0.to_string())?;
 
 	Ok(())

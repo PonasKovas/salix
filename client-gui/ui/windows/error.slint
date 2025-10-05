@@ -1,0 +1,67 @@
+import { Palette } from "../palette.slint";
+import { Button, Text } from "../widgets.slint";
+
+export component ErrorWindow inherits Window {
+    in property <string> build-info: "v0.0";
+
+    in property <string> message: "Error";
+
+    callback ok();
+
+    title: "Salix Error";
+    width: 400px;
+    height: 200px;
+    background: @linear-gradient(180deg, Palette.background1 35%, Palette.background2 80%);
+
+    VerticalLayout {
+        Text {
+            text: "salix";
+            font-size: 50px;
+            font-weight: 800;
+            color: Palette.accent;
+            horizontal-alignment: center;
+            vertical-stretch: 0;
+        }
+
+        Rectangle {
+        	vertical-stretch: 0;
+        	height: 20px;
+        }
+
+        Text {
+        	text: root.message;
+        	color: Palette.error;
+        	horizontal-alignment: center;
+        	vertical-stretch: 0;
+        }
+
+        Rectangle {
+        	vertical-stretch: 1;
+        }
+
+        HorizontalLayout {
+        	alignment: center;
+
+        	Button {
+	        	text: "OK";
+	        	vertical-stretch: 0;
+
+	        	clicked => {
+	        		root.ok();
+	        	}
+	        }
+        }
+        
+        HorizontalLayout {
+            padding-right: 15px;
+            padding-bottom: 10px;
+            alignment: end;
+
+            Text {
+                text: root.build-info;
+                color: Palette.text2;
+                horizontal-alignment: right;
+            }
+        }
+    }
+}

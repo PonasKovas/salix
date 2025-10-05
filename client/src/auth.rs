@@ -57,7 +57,7 @@ pub struct EmailVerifier {
 }
 
 impl EmailVerifier {
-	pub async fn verify_email(&mut self, code: u32) -> Result<CreateAccount, Error> {
+	pub async fn verify(&mut self, code: u32) -> Result<CreateAccount, Error> {
 		let email = match self.email.take() {
 			Some(x) => x,
 			None => panic!("already verified"),
