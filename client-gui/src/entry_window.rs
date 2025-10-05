@@ -29,7 +29,15 @@ pub fn entry_window(client: Client) -> anyhow::Result<()> {
 		let entry = entry_weak.unwrap();
 		let client = client_clone.clone();
 
-		slint::spawn_local(on_login(client, entry, email, password).compat()).unwrap();
+		slint::spawn_local(
+			async move {
+				if let Err(e) = on_login(client, entry, email, password).await {
+					println!("{e:?}");
+				}
+			}
+			.compat(),
+		)
+		.unwrap();
 	});
 
 	let state_clone = Arc::clone(&state);
@@ -40,7 +48,15 @@ pub fn entry_window(client: Client) -> anyhow::Result<()> {
 		let entry = entry_weak.unwrap();
 		let client = client_clone.clone();
 
-		slint::spawn_local(on_register1(client, entry, state, email).compat()).unwrap();
+		slint::spawn_local(
+			async move {
+				if let Err(e) = on_register1(client, entry, state, email).await {
+					println!("{e:?}");
+				}
+			}
+			.compat(),
+		)
+		.unwrap();
 	});
 
 	let state_clone = Arc::clone(&state);
@@ -51,7 +67,15 @@ pub fn entry_window(client: Client) -> anyhow::Result<()> {
 		let entry = entry_weak.unwrap();
 		let client = client_clone.clone();
 
-		slint::spawn_local(on_register2(client, entry, state, code).compat()).unwrap();
+		slint::spawn_local(
+			async move {
+				if let Err(e) = on_register2(client, entry, state, code).await {
+					println!("{e:?}");
+				}
+			}
+			.compat(),
+		)
+		.unwrap();
 	});
 
 	let state_clone = Arc::clone(&state);
@@ -62,8 +86,15 @@ pub fn entry_window(client: Client) -> anyhow::Result<()> {
 		let entry = entry_weak.unwrap();
 		let client = client_clone.clone();
 
-		slint::spawn_local(on_register3(client, entry, state, username, password).compat())
-			.unwrap();
+		slint::spawn_local(
+			async move {
+				if let Err(e) = on_register3(client, entry, state, username, password).await {
+					println!("{e:?}");
+				}
+			}
+			.compat(),
+		)
+		.unwrap();
 	});
 
 	entry.show()?;
@@ -86,7 +117,7 @@ async fn on_login(
 
 	match res {
 		Ok(auth_token) => {
-			finish(client, entry, auth_token);
+			finish(client, entry, auth_token)?;
 		}
 		Err(e) => {
 			entry.set_login_error_message(e.to_shared_string());
@@ -210,24 +241,25 @@ async fn on_register3(
 		Ok(id) => id,
 	};
 
-	finish(client, entry, auth_token);
+	finish(client, entry, auth_token)?;
 
 	Ok(())
 }
 
-fn finish(client: Client, entry: EntryWindow, token: AuthToken) {
-	// this closure is called either when the user successfully logins
-	// or creates a new account
-	// either way receives an auth_token
-
+// this is called either when the user successfully logins
+// or creates a new account
+// either way receives an auth_token
+fn finish(client: Client, entry: EntryWindow, token: AuthToken) -> Result<()> {
 	println!("LOGGED IN. auth token: {token:?}");
 
 	if let Err(e) = client::auth_token_store::store_auth_token(&token) {
-		show_error_window(slint::format!("error storing auth token: {e}"), false).unwrap();
+		show_error_window(slint::format!("error storing auth token: {e}"), false)?;
 	}
 
 	client.set_auth_token(token);
 
-	chat_window::chat_window(client).unwrap();
-	entry.hide().unwrap();
+	chat_window::chat_window(client)?;
+	entry.hide()?;
+
+	Ok(())
 }
