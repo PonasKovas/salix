@@ -2,6 +2,7 @@
 name = "client-gui"
 version.workspace = true
 edition.workspace = true
+license = "GPL-3.0-only"
 
 [dependencies]
 client = { path = "../client" }

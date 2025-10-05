@@ -5,6 +5,7 @@ members = ["client", "client-gui", "protocol", "server", "tokio-pubsub"]
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [workspace.dependencies]
 serde = "1.0.219"
