@@ -27,7 +27,7 @@ fn get_commit_hash() -> Result<String, Box<dyn Error>> {
 
 fn build_slint() -> Result<(), slint_build::CompileError> {
 	let config = CompilerConfiguration::default().with_style("cupertino-dark".to_owned());
-	slint_build::compile_with_config("ui/windows.slint", config)?;
+	slint_build::compile_with_config("ui/main.slint", config)?;
 
 	Ok(())
 }

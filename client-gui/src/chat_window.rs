@@ -9,7 +9,13 @@ use slint::{ComponentHandle, ToSharedString};
 pub fn chat_window(client: Client) -> anyhow::Result<()> {
 	let window = ChatWindow::new()?;
 
-	window.set_build_info(version().into());
+	let global_data: crate::GlobalData = window.global();
+	global_data.set_build_info(version().into());
+	global_data.on_show_license(move || {
+		if let Err(e) = crate::license_window::show_license_window() {
+			println!("{:?}", anyhow::anyhow!(e));
+		}
+	});
 
 	window.show()?;
 

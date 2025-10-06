@@ -1,13 +1,11 @@
 import { Palette } from "../palette.slint";
-import { Button, Text, LineEdit, LoadingAnimation } from "../widgets.slint";
+import { Button, Text, LineEdit, LoadingAnimation, Footer } from "../widgets.slint";
 import { LoginPanel } from "entry/login-panel.slint";
 import { Register1Panel } from "entry/register1-panel.slint";
 import { Register2Panel } from "entry/register2-panel.slint";
 import { Register3Panel } from "entry/register3-panel.slint";
 
 export component EntryWindow inherits Window {
-    in property <string> build-info: "v0.0";
-
     in-out property <bool> login_email_error <=> login_panel.email_error;
     in-out property <bool> login_password_error <=> login_panel.password_error;
     in-out property <string> login_error_message <=> login_panel.error_message;
@@ -184,16 +182,6 @@ export component EntryWindow inherits Window {
             }
         }
 
-        HorizontalLayout {
-            padding-right: 15px;
-            padding-bottom: 10px;
-            alignment: end;
-
-            Text {
-                text: root.build-info;
-                color: Palette.text2;
-                horizontal-alignment: right;
-            }
-        }
+        Footer {}
     }
 }

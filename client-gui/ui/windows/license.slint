@@ -1,0 +1,38 @@
+import { Palette } from "../palette.slint";
+import { Text, ScrollView } from "../widgets.slint";
+import { Footer } from "../widgets/footer.slint";
+
+export component LicenseWindow inherits Window {
+    in property <string> license-text: "Unknown license text.";
+
+    title: "Salix License";
+    preferred-width: 600px;
+    preferred-height: 600px;
+    background: Palette.background1;
+
+    VerticalLayout {
+    	padding: 10px;
+    	Rectangle {
+    		background: Palette.background2;
+
+    		ScrollView {
+	        	viewport-height: inner_scroll.preferred-height;
+		        viewport-width: root.width;
+		        horizontal-scrollbar-policy: always-off;
+
+		        inner_scroll := VerticalLayout {
+		        	padding: 10px;
+
+		        	Text {
+		        		text: root.license-text;
+		        		wrap: word-wrap;
+		        		horizontal-alignment: left;
+		        		vertical-alignment: top;
+		        	}
+		        }
+	        }
+    	}
+        
+        Footer {}
+    }
+}

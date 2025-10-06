@@ -1,11 +1,10 @@
-use crate::{ErrorWindow, crate_version::version};
+use crate::ErrorWindow;
 use slint::{ComponentHandle, SharedString};
 
 /// if critical, will end the whole event loop upon clicking OK
 pub fn show_error_window(msg: SharedString, critical: bool) -> anyhow::Result<()> {
 	let error_window = ErrorWindow::new()?;
 
-	error_window.set_build_info(version().into());
 	error_window.set_message(msg);
 
 	let error_window_weak = error_window.as_weak();

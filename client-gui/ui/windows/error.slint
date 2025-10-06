@@ -1,9 +1,8 @@
 import { Palette } from "../palette.slint";
 import { Button, Text } from "../widgets.slint";
+import { Footer } from "../widgets/footer.slint";
 
 export component ErrorWindow inherits Window {
-    in property <string> build-info: "v0.0";
-
     in property <string> message: "Error";
 
     callback ok();
@@ -52,16 +51,6 @@ export component ErrorWindow inherits Window {
 	        }
         }
         
-        HorizontalLayout {
-            padding-right: 15px;
-            padding-bottom: 10px;
-            alignment: end;
-
-            Text {
-                text: root.build-info;
-                color: Palette.text2;
-                horizontal-alignment: right;
-            }
-        }
+        Footer {}
     }
 }

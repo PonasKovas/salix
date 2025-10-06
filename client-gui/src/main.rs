@@ -6,11 +6,13 @@ use async_compat::CompatExt;
 use client::{Client, auth::AuthToken};
 use crate_version::version;
 use error_window::show_error_window;
+use license_window::show_license_window;
 
 mod chat_window;
 mod crate_version;
 mod entry_window;
 mod error_window;
+mod license_window;
 
 slint::include_modules!();
 
@@ -20,7 +22,13 @@ fn main() -> Result<()> {
 
 	let loading_window = LoadingWindow::new()?;
 
-	loading_window.set_build_info(version().into());
+	let global_data: GlobalData = loading_window.global();
+	global_data.set_build_info(version().into());
+	global_data.on_show_license(move || {
+		if let Err(e) = show_license_window() {
+			println!("{:?}", anyhow!(e));
+		}
+	});
 
 	let loading_window_weak = loading_window.as_weak();
 	slint::spawn_local(
@@ -28,7 +36,6 @@ fn main() -> Result<()> {
 			if let Err(e) = init(loading_window_weak.unwrap(), stored_token).await {
 				show_error_window(slint::format!("{e}"), true).unwrap();
 				println!("{:?}", anyhow!(e));
-				return;
 			}
 		}
 		.compat(),

@@ -1,11 +1,10 @@
 import { Palette } from "../palette.slint";
-import { Button, Text, LineEdit, LoadingAnimation, TextEdit } from "../widgets.slint";
+import { Button, Text, LineEdit, LoadingAnimation, TextEdit, Footer } from "../widgets.slint";
 import { ListView } from "std-widgets.slint";
 import { MessageData, Message } from "chat/chat-message.slint";
 import { ChatInput } from "chat/chat-input.slint";
 
 export component ChatWindow inherits Window {
-	in property <string> build-info: "v0.0";
 	in property <[MessageData]> messages: [
 		{author: "Sample", text: "example text message"},
 		{author: "Another User", text: "LOL"},
@@ -18,6 +17,11 @@ export component ChatWindow inherits Window {
     min-height: 600px;
     min-width: 800px;
     
+    VerticalLayout {
+    	alignment: start;
+    	Footer {}
+    }
+
     VerticalLayout {
     	Rectangle {
     		ListView {

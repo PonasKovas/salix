@@ -21,8 +21,6 @@ pub fn entry_window(client: Client) -> anyhow::Result<()> {
 
 	let entry = EntryWindow::new()?;
 
-	entry.set_build_info(version().into());
-
 	let entry_weak = entry.as_weak();
 	let client_clone = client.clone();
 	entry.on_login(move |email, password| {

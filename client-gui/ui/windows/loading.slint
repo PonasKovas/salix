@@ -1,9 +1,7 @@
 import { Palette } from "../palette.slint";
-import { LoadingAnimation } from "../widgets.slint";
+import { LoadingAnimation, Footer } from "../widgets.slint";
 
 export component LoadingWindow inherits Window {
-    in property <string> build-info: "v0.0";
-
     title: "Salix";
     background: Palette.background1;
 
@@ -17,16 +15,6 @@ export component LoadingWindow inherits Window {
 	        }
 	    }
 
-        HorizontalLayout {
-            padding-right: 15px;
-            padding-bottom: 10px;
-            alignment: end;
-
-            Text {
-                text: root.build-info;
-                color: Palette.text2;
-                horizontal-alignment: right;
-            }
-        }
+        Footer {}
     }
 }
