@@ -2,8 +2,6 @@
 
 ## Licensing
 
-This project is available under two licenses.
-
 Everything in this repository is licensed under the MIT License, with two exceptions:
 
 - The Client GUI: The code located in the `/client-gui` directory is licensed under the GPLv3.
